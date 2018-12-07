@@ -4,12 +4,11 @@ from django.contrib.auth import authenticate
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.db import transaction
-from django.contrib.auth.decorators import permission_required
 from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
-from django.shortcuts import render, redirect
 from django.utils.decorators import method_decorator
 from django.views import View
 from django.contrib import auth
+from django.template.response import TemplateResponse
 
 from demo.form import UserForm, ItemForm, ItemAddForm, UserAddForm, RoleForm, RoleAddForm, PermissionAddForm, \
     RegisterForm
@@ -17,6 +16,11 @@ from demo.util import PermRequired, ItemRequired, UserRequired, RoleRequired, Us
 from input.models import Role, User, UserRole, RolePermission, Item, Perm
 
 from django.utils.functional import SimpleLazyObject
+
+
+class WelcomePage(View):
+    def get(self, request):
+        return HttpResponse("<h1>欢迎来到权限控制系统</h1>")
 
 
 class Login(View):
@@ -32,7 +36,7 @@ class Login(View):
             try:
                 user_id = User.objects.get(username=username)
             except:
-                return render(request, "login.html", {"username": username, "password": password, "error": "用户名错误"})
+                return TemplateResponse(request, "login.html", {"username": username, "password": password, "error": "用户名错误"})
             user = authenticate(request, username=user_id, password=password)
             if user:
                 auth.login(request, user)
@@ -40,13 +44,13 @@ class Login(View):
                     return HttpResponseRedirect(next_url)
                 return HttpResponseRedirect("/index/")
             else:
-                return render(request, "login.html", {"username": username, "password": password, "error": "密码错误"})
+                return TemplateResponse(request, "login.html", {"username": username, "password": password, "error": "密码错误"})
         else:
-            return render(request, "login.html", {"username": username, "password": password, "error": "登录失败"})
+            return TemplateResponse(request, "login.html", {"username": username, "password": password, "error": "登录失败"})
 
     def get(self, request, *args, **kwargs):
         next_url = request.GET.get("next", None)
-        return render(request, "login.html", {"next_url": next_url})
+        return TemplateResponse(request, "login.html", {"next_url": next_url})
 
 
 class LogoutView(View):
@@ -78,27 +82,28 @@ class Register(View):
             user = User.objects.filter(username=username)
             if user:
                 data["error"] = "用户名已存在"
-                return render(request, "register.html", data)
+                return TemplateResponse(request, "register.html", data)
             if password1 and password2:
                 if password1 != password2:
                     data["error"] = "密码输入不一致，请重新输入密码"
-                    return render(request, "register.html", data)
+                    return TemplateResponse(request, "register.html", data)
             try:
                 User.objects.create_user(username=username, password=password1)
             except:
                 data["error"] = "注册失败"
-                return render(request, "register.html", data)
+                return TemplateResponse(request, "register.html", data)
         else:
             data["error"] = "注册失败"
-            return render(request, "register.html", data)
+            return TemplateResponse(request, "register.html", data)
         return HttpResponseRedirect('/')
 
     def get(self, request, *args, **kwargs):
-        return render(request, "register.html")
+        return TemplateResponse(request, "register.html")
 
 
 def index(request):
-    return render(request, "index.html")
+    perm = request.perm
+    return TemplateResponse(request, "index.html",{"perm":perm})
 
 
 class ItemView(LoginRequiredMixin, PermRequired, View):
@@ -114,9 +119,10 @@ class ItemView(LoginRequiredMixin, PermRequired, View):
                 "nr": i.nr,
                 "name": i.name,
                 "barcode": i.barcode,
+                "perms":request.perm
             }
             context.append(data)
-        return render(request, "item.html", {"data": context})
+        return TemplateResponse(request, "item.html", {"data": context})
 
 
 class ItemEdit(LoginRequiredMixin, ItemRequired, View):
@@ -134,6 +140,7 @@ class ItemEdit(LoginRequiredMixin, ItemRequired, View):
             }
         except:
             return HttpResponseRedirect("/item/?msg=数据查询失败")
+        return TemplateResponse(request, "item_edit.html", {"data": data})
 
     def post(self, request, *args, **kwargs):
         form = ItemForm(request.POST)
@@ -160,11 +167,11 @@ class ItemEdit(LoginRequiredMixin, ItemRequired, View):
                     item.barcode = barcode
                     item.save()
                 except:
-                    return render(request, "item_edit.html", {"data": data, "error": "编辑失败"})
+                    return TemplateResponse(request, "item_edit.html", {"data": data, "error": "编辑失败"})
                 else:
                     return HttpResponseRedirect("/item/")
         else:
-            return render(request, "item_edit.html", {"data": data, "error": "表单填写错误"})
+            return TemplateResponse(request, "item_edit.html", {"data": data, "error": "表单填写错误"})
 
 
 class ItemDelete(LoginRequiredMixin, ItemRequired, View):
@@ -173,7 +180,7 @@ class ItemDelete(LoginRequiredMixin, ItemRequired, View):
     def get(self, request, *args, **kwargs):
         item_id = request.GET.get('item_id', None)
         try:
-            item = Item.objects.first(id=item_id)
+            item = Item.objects.get(id=item_id)
             data = {
                 "id": item.id,
                 "nr": item.nr,
@@ -184,7 +191,7 @@ class ItemDelete(LoginRequiredMixin, ItemRequired, View):
             traceback.print_exc()
             return HttpResponseRedirect("/item/?msg=数据查询失败")
 
-        return render(request, "item_delete.html", {"data": data})
+        return TemplateResponse(request, "item_delete.html", {"data": data})
 
     def post(self, request, *args, **kwargs):
         item_id = request.GET.get('item_id', None)
@@ -203,7 +210,7 @@ class ItemAdd(LoginRequiredMixin, ItemRequired, View):
     permission_required = "add_item"
 
     def get(self, request, *args, **kwargs):
-        return render(request, "item_add.html")
+        return TemplateResponse(request, "item_add.html")
 
     def post(self, request, *args, **kwargs):
         form = ItemAddForm(request.POST)
@@ -222,11 +229,11 @@ class ItemAdd(LoginRequiredMixin, ItemRequired, View):
                 try:
                     Item.objects.create(nr=nr, name=name, barcode=barcode)
                 except:
-                    return render(request, "item_add.html", {"data": data, "error": "添加失败，物料代码已存在"})
+                    return TemplateResponse(request, "item_add.html", {"data": data, "error": "添加失败，物料代码已存在"})
                 else:
                     return HttpResponseRedirect("/item/")
         else:
-            return render(request, "item_edit.html", {"data": data, "error": "表单错误"})
+            return TemplateResponse(request, "item_edit.html", {"data": data, "error": "表单错误"})
 
 
 class UserView(LoginRequiredMixin, PermRequired, View):
@@ -248,7 +255,7 @@ class UserView(LoginRequiredMixin, PermRequired, View):
                 "is_superuser": i.is_superuser,
             }
             content["data"].append(data)
-        return render(request, "user.html", content)
+        return TemplateResponse(request, "user.html", content)
 
 
 class UserEdit(LoginRequiredMixin, UserRequired, View):
@@ -266,7 +273,7 @@ class UserEdit(LoginRequiredMixin, UserRequired, View):
         except:
             return HttpResponseRedirect("/user/?msg=数据查询失败")
 
-        return render(request, "user_edit.html", {"data": data})
+        return TemplateResponse(request, "user_edit.html", {"data": data})
 
     def post(self, request, *args, **kwargs):
         form = UserAddForm(request.POST)
@@ -284,11 +291,11 @@ class UserEdit(LoginRequiredMixin, UserRequired, View):
                     user.is_superuser = is_superuser
                     user.save()
                 except:
-                    return render(request, "user_edit.html", {"error": "编辑失败"})
+                    return TemplateResponse(request, "user_edit.html", {"error": "编辑失败"})
                 else:
                     return HttpResponseRedirect("/user/")
         else:
-            return render(request, "user_edit.html", {"error": "表单填写错误"})
+            return TemplateResponse(request, "user_edit.html", {"error": "表单填写错误"})
 
 
 class UserDelete(LoginRequiredMixin, UserRequired, View):
@@ -306,7 +313,7 @@ class UserDelete(LoginRequiredMixin, UserRequired, View):
         except:
             return HttpResponseRedirect("/user/?msg=数据查询失败")
 
-        return render(request, "user_delete.html", {"data": data})
+        return TemplateResponse(request, "user_delete.html", {"data": data})
 
     def post(self, request, *args, **kwargs):
         user_id = request.GET.get('user_id', None)
@@ -341,7 +348,7 @@ class RoleView(LoginRequiredMixin, PermRequired, View):
                 "name": i.name,
             }
             content["data"].append(data)
-        return render(request, "role.html", content)
+        return TemplateResponse(request, "role.html", content)
 
 
 class RoleEdit(LoginRequiredMixin, RoleRequired, View):
@@ -359,7 +366,7 @@ class RoleEdit(LoginRequiredMixin, RoleRequired, View):
         except:
             return HttpResponseRedirect("/role/?msg=查询角色信息失败")
 
-        return render(request, "role_edit.html", {"message": "物料数据返回成功", "data": data})
+        return TemplateResponse(request, "role_edit.html", {"message": "物料数据返回成功", "data": data})
 
     def post(self, request, *args, **kwargs):
         form = RoleForm(request.POST)
@@ -379,11 +386,11 @@ class RoleEdit(LoginRequiredMixin, RoleRequired, View):
                     role.save()
                 except:
 
-                    return render(request, "role_edit.html", {"data": data, "error": "编辑失败"})
+                    return TemplateResponse(request, "role_edit.html", {"data": data, "error": "编辑失败"})
                 else:
                     return HttpResponseRedirect("/role/")
         else:
-            return render(request, "role_edit.html", {"data": data, "error": "表单填写错误"})
+            return TemplateResponse(request, "role_edit.html", {"data": data, "error": "表单填写错误"})
 
 
 class RoleAdd(LoginRequiredMixin, RoleRequired, View):
@@ -392,7 +399,7 @@ class RoleAdd(LoginRequiredMixin, RoleRequired, View):
     def get(self, request, *args, **kwargs):
 
         if request.user.has_perm("add_role"):
-            return render(request, "role_add.html")
+            return TemplateResponse(request, "role_add.html")
         else:
             return HttpResponseRedirect("/role/?msg=用户没有添加角色的权限")
 
@@ -411,11 +418,11 @@ class RoleAdd(LoginRequiredMixin, RoleRequired, View):
                         Role.objects.create(name=name)
                     except Exception as e:
                         print(e)
-                        return render(request, "role_add.html", {"data": data, "error": "添加失败,角色名称已存在"})
+                        return TemplateResponse(request, "role_add.html", {"data": data, "error": "添加失败,角色名称已存在"})
                     else:
                         return HttpResponseRedirect("/role/")
             else:
-                return render(request, "role_add.html", {"data": data, "error": "表单错误"})
+                return TemplateResponse(request, "role_add.html", {"data": data, "error": "表单错误"})
         else:
             return HttpResponseRedirect("/role/?msg=用户没有添加角色的权限")
 
@@ -425,7 +432,7 @@ class RoleDelete(LoginRequiredMixin, RoleRequired, View):
 
     def get(self, request, *args, **kwargs):
 
-        role_id = request.GET.get('role_id', None)
+        role_id = request.GET.get('id', None)
         try:
             role = Role.objects.get(id=role_id)
             data = {
@@ -435,10 +442,10 @@ class RoleDelete(LoginRequiredMixin, RoleRequired, View):
         except:
             return HttpResponseRedirect("/role/?msg=数据查询失败")
 
-        return render(request, "role_delete.html", {"message": "数据返回成功", "data": data})
+        return TemplateResponse(request, "role_delete.html", {"message": "数据返回成功", "data": data})
 
     def post(self, request, *args, **kwargs):
-        role_id = request.GET.get('role_id', None)
+        role_id = request.POST.get('id', None)
 
         with transaction.atomic(savepoint=False):
             # 创建保存点
@@ -447,14 +454,15 @@ class RoleDelete(LoginRequiredMixin, RoleRequired, View):
                 role.delete()
             except Exception as e:
                 print(e)
-                return HttpResponseRedirect("/role_delete/?msg=删除失败")
+                return HttpResponseRedirect("/role/delete/?msg=删除失败")
             else:
                 return HttpResponseRedirect('/role/')
 
 
-class PermissionView(LoginRequiredMixin,PermRequired, View):
+class PermissionView(LoginRequiredMixin, PermRequired, View):
     """权限"""
     permission_required = "view_perm"
+
     def get(self, request, *args, **kwargs):
         content = {
             "message": "",
@@ -470,13 +478,14 @@ class PermissionView(LoginRequiredMixin,PermRequired, View):
             }
             content["data"].append(data)
 
-        return render(request, "permission.html", content)
+        return TemplateResponse(request, "permission.html", content)
 
 
-class UserRoleView(LoginRequiredMixin,PermRequired, View):
+class UserRoleView(LoginRequiredMixin, PermRequired, View):
     """用户角色"""
 
     permission_required = "view_user_role"
+
     def get(self, request, *args, **kwargs):
         content = {
             "error": "",
@@ -503,11 +512,12 @@ class UserRoleView(LoginRequiredMixin,PermRequired, View):
         content["data"] = user_role_list
         content["all_role_dict"] = all_role_dict
 
-        return render(request, "user_role.html", content)
+        return TemplateResponse(request, "user_role.html", content)
 
 
-class UserRoleEdit(LoginRequiredMixin,UserRoleRequired, View):
+class UserRoleEdit(LoginRequiredMixin, UserRoleRequired, View):
     permission_required = "change_user_role"
+
     def get(self, request, *args, **kwargs):
         user_id = request.GET.get("user_id", None)
         try:
@@ -527,14 +537,13 @@ class UserRoleEdit(LoginRequiredMixin,UserRoleRequired, View):
             "roles_list": roles_list,
             "all_role_dict": all_role_dict
         }
-        return render(request, "user_role_edit.html", user_role)
+        return TemplateResponse(request, "user_role_edit.html", user_role)
 
     def post(self, request, *args, **kwargs):
         user_id = request.POST["id"]
         roles = request.POST['roles_arr']
         role_list = roles.split(',')
         if roles:
-
             role_int_list = list(map(lambda x: int(x), list(filter(lambda x: type(x) is str, role_list))))
         else:
             role_int_list = []
@@ -553,9 +562,10 @@ class UserRoleEdit(LoginRequiredMixin,UserRoleRequired, View):
             return HttpResponseRedirect("/user_role/")
 
 
-class RolePermissionView(LoginRequiredMixin,PermRequired, View):
+class RolePermissionView(LoginRequiredMixin, PermRequired, View):
     """角色权限"""
     permission_required = "view_role_permission"
+
     def get(self, request, *args, **kwargs):
         content = {
             "error": "",
@@ -591,15 +601,15 @@ class RolePermissionView(LoginRequiredMixin,PermRequired, View):
             }
             role_perm_list.append(user_role)
 
-        #
         content["data"] = role_perm_list
         content["all_perm_dict"] = all_perm_dict
-        return render(request, "role_permission.html", content)
+        return TemplateResponse(request, "role_permission.html", content)
 
 
-class RolePermissionEdit(LoginRequiredMixin,RolePermRequired, View):
+class RolePermissionEdit(LoginRequiredMixin, RolePermRequired, View):
     """角色权限"""
     permission_required = "change_role_permission"
+
     def get(self, request, *args, **kwargs):
         role_id = request.GET.get("role_id", None)
         try:
@@ -620,7 +630,7 @@ class RolePermissionEdit(LoginRequiredMixin,RolePermRequired, View):
             "all_perm_dict": all_perm_dict
         }
 
-        return render(request, "role_permission_edit.html", role_perm)
+        return TemplateResponse(request, "role_permission_edit.html", role_perm)
 
     def post(self, request, *args, **kwargs):
         role_id = request.POST["id"]

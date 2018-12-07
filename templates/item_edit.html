@@ -1,16 +1,8 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>物料编辑</title>
-    <style>
-        .con{
-        color:red;
-        }
-    </style>
-</head>
-<body>
-<h3>物料编辑</h3>
+{% extends "base.html" %}
+{% block title %}
+    物料编辑
+{% endblock %}
+{% block content %}
  <form action="/item/edit/"  method="post">
   <label for="id">id:</label>
   <input type="text" name="id" value="{{ data.id }}" id="id" readonly>
@@ -28,7 +20,4 @@
     <a href="/item/">
     <button> 返回 </button>
     </a>
-
-</body>
-</html>
-
+{% endblock %}

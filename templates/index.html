@@ -45,18 +45,30 @@
 <button> 退出登录 </button>
 </a>
 <ul>
-    <li><a href="/item/">物料</a></li>
-    <br>
-    <li><a href="/user/">用户管理</a></li>
-    <br>
-    <li><a href="/role/">角色管理</a></li>
-    <br>
-    <li><a href="/perm/">权限管理</a></li>
-    <br>
-    <li><a href="/user_role/">用户角色</a></li>
-    <br>
-    <li><a href="/role_permission/">角色权限</a></li>
+    {% if "view_item" in perm %}
+        <li><a href="/item/">物料</a></li>
+        <br>
+    {% endif %}
 
+    {% if "view_user" in perm %}
+      <li><a href="/user/">用户管理</a></li>
+    <br>
+    {% endif %}
+    {% if "view_role" in perm %}
+        <li><a href="/role/">角色管理</a></li>
+    <br>
+    {% endif %}
+    {% if "view_perm" in perm %}
+          <li><a href="/perm/">权限管理</a></li>
+    <br>
+    {% endif %}
+    {% if "view_user_role" in perm %}
+          <li><a href="/user_role/">用户角色</a></li>
+    <br>
+    {% endif %}
+    {% if "view_role_permission" in perm %}
+         <li><a href="/role_permission/">角色权限</a></li>
+    {% endif %}
 </ul>
 
 </body>

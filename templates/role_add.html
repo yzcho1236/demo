@@ -1,16 +1,8 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>角色添加</title>
-    <style>
-        .con{
-        color:red;
-        }
-    </style>
-</head>
-<body>
-<h3>角色添加</h3>
+{% extends "base.html" %}
+{% block title %}
+    角色添加
+{% endblock %}
+ {% block content %}
  <form action="/role/add/" method="post">
   <label for="name">name:</label>
   <input type="text" name="name" value="" id="name">
@@ -22,7 +14,5 @@
     <a href="/role/">
     <button> 返回 </button>
     </a>
-
-</body>
-</html>
+{% endblock %}
 

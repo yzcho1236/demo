@@ -1,16 +1,9 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>物料添加</title>
-    <style>
-        .con{
-        color:red;
-        }
-    </style>
-</head>
-<body>
-<h3>物料添加</h3>
+{% extends "base.html" %}
+{% block title %}
+    物料添加
+{% endblock %}
+
+{% block content %}
  <form  action="/item/add/" method="post">
   <label for="nr">nr:</label>
   <input type="text" name="nr" value="{{ data.nr }}" id="password">
@@ -26,8 +19,6 @@
     <a href="/item/">
     <button> 返回 </button>
     </a>
-
-</body>
-</html>
+{% endblock %}
 
 
