@@ -2,6 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <link rel="stylesheet" href="http://cdn.static.runoob.com/libs/bootstrap/3.3.7/css/bootstrap.min.css"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
 
     <title>
     {% block title %}
@@ -9,7 +11,12 @@
     {% endblock %}
     </title>
     <script src="http://libs.baidu.com/jquery/2.0.0/jquery.js"></script>
+<!-- 压缩版的bootstrap.min.js包含了所有的Bootstrap数据API插件 -->
+    <script src="http://cdn.static.runoob.com/libs/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+</body>
  <script>
+
+    {# 获取URL路径中的参数 #}
        function GetUrlByParamName(name)
     {
         var reg = new RegExp("(^|&)"+ name +"=([^&]*)(&|$)");
@@ -30,28 +37,78 @@
       {
         alert(msg);
       }
-    }
+    } ;
+
+       {# 用户角色、角色权限中的checkbox #}
+    Edit = function () {
+            var checked = $("input[type='checkbox']:checked").val([]);  //直接获取checkbox值的方法,将其放到数组中
+            {#             var checked=$('input[name='+UserId+']:checked').val([]);#}
+            var array = [];
+
+            for (var i = 0; i < checked.length; i++) {
+                array.push(checked[i].value)
+            }
+            document.getElementById('array').value = array;
+        };
+    function ExcelFile() {
+    document.getElementById("btn_file").click();
+    }
+
+    function Search() {
+        var field = $('#field option:selected').val();
+        var op = $('#op option:selected').val();
+        var data = document.getElementById("data").value;
+
+        {# 在URL路径中 #}
+        window.location.href = "/item?field="+ field + "&op=" + op + "&data=" + data;
+    }
+
 </script>
-<style>
-    {% block style %}
-    {% endblock %}
-</style>
+
 <style type="text/css">
     a{
         text-decoration: none;
     }
+    .con{
+        color: red;
+    }
+    .box {
+        border: 2px dotted #ddd;
+        height: 100px;
+        width: 400px;
+        margin-left: 80px;
+        margin-right: 40px;
+    }
+    .b_div {
+        height: 150px;
+        width: 450px;
+    }
+
 </style>
 </head>
 <body>
 <div>
-<a href="/item/" >物料</a>&nbsp;&nbsp;&nbsp;
-<a href="/user/">用户管理</a>&nbsp;&nbsp;&nbsp;
-<a href="/role/" >角色管理</a>&nbsp;&nbsp;&nbsp;
-<a href="/perm/">权限管理</a>&nbsp;&nbsp;&nbsp;
-<a href="/user_role/">用户角色</a>&nbsp;&nbsp;&nbsp;
-<a href="/role_permission/">角色权限</a>&nbsp;&nbsp;&nbsp;
-<a href="/logout/">退出登录</a>&nbsp;&nbsp;&nbsp;
+{% if "view_item" in perm %}
+    <a href="/item/">物料</a>&nbsp;&nbsp;&nbsp;&nbsp;
+{% endif %}
 
+{% if "view_user" in perm %}
+  <a href="/user/">用户管理</a>&nbsp;&nbsp;&nbsp;&nbsp;
+{% endif %}
+{% if "view_role" in perm %}
+    <a href="/role/">角色管理</a>&nbsp;&nbsp;&nbsp;&nbsp;
+{% endif %}
+{% if "view_perm" in perm %}
+      <a href="/perm/">权限管理</a>&nbsp;&nbsp;&nbsp;&nbsp;
+{% endif %}
+{% if "view_user_role" in perm %}
+      <a href="/user_role/">用户角色</a>&nbsp;&nbsp;&nbsp;&nbsp;
+{% endif %}
+{% if "view_role_permission" in perm %}
+     <a href="/role_permission/">角色权限</a>&nbsp;&nbsp;&nbsp;&nbsp;
+{% endif %}
+<a href="/logout/">退出登录</a>
+<br>
 </div>
 <br>
 {% block content %}

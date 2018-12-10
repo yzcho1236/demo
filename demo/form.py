@@ -25,10 +25,11 @@ class RegisterForm(forms.Form):
     password2 = forms.CharField()
 
 
-class UserAddForm(forms.Form):
+class UserEditForm(forms.Form):
     id = forms.IntegerField()
     username = forms.CharField()
-    is_superuser = forms.BooleanField()
+    password = forms.CharField()
+    is_superuser = forms.CharField()
 
 
 class RoleForm(forms.Form):

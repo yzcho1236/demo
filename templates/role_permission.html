@@ -7,7 +7,10 @@
       <tr>
         <th>角色</th>
         <th>权限</th>
+          {% if "change_role_permission" in perm %}
+
         <th>操作</th>
+          {% endif %}
       </tr>
 
     {% for i in data %}
@@ -18,21 +21,36 @@
             {% for k,v in all_perm_dict.items %}
 
                     {% if v in i.perm %}
-                    <input type="checkbox" value="{{ k }}" name="{{ i.id }}" checked>{{ v }}
+                    <input type="checkbox" value="{{ k }}" name="{{ i.id }}" checked readonly>{{ v }}
                     {% else %}
-                     <input type="checkbox" value="{{ k }}" name="{{ i.id }}">{{ v }}
+                     <input type="checkbox" value="{{ k }}" name="{{ i.id }}" readonly>{{ v }}
                 {% endif %}
             {% endfor %}
 
         </th>
+        {% if "change_role_permission" in perm %}
+
         <th>
             <a href="/role_permission/edit/?role_id={{ i.id }}">
             <button> 编辑 </button>
             </a>
 
         </th>
+        {% endif %}
       </tr>
     {% endfor %}
 </table>
+
+<br>
+<a href="/role_permission/?page=1"><button> 第一页 </button></a>
+<a href="/role_permission/?page={{ page| add:-1 }}"><button> 上一页 </button></a>
+
+<input id="curPage" type="text" size="5" value="{{ page }}">
+
+<a href="/role_permission/?page={{ page| add:1 }}"><button> 下一页 </button></a>
+<a href="/role_permission/?page={{ total_pages }}"><button> 最后一页 </button></a>
+
+&nbsp;&nbsp;&nbsp;共{{ total_pages }}页
+<br>
 {{ message }}
 {% endblock %}

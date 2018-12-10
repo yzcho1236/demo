@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>查询</title>
+</head>
+<body>
+<div class="div_black" id="div_black"></div>
+    <div class="div_iterm" id="div_iterm">
+        <select>
+          <option selected="selected" value="id">用户id</option>
+          <option value="nr">代码</option>
+          <option value="name">名称</option>
+          <option value="barcode">条码</option>
+        </select>
+
+        <select>
+          <option selected="selected" value="eq">等于</option>
+          <option value="ne">不等于</option>
+          <option value="lt">小于</option>
+          <option value="le">小于等于</option>
+          <option value="gt">大于</option>
+          <option value="ge">大于等于</option>
+          <option value="bw">开始于</option>
+          <option value="bn">不开始于</option>
+          <option value="in">属于</option>
+          <option value="ni">不属于</option>
+          <option value="ew">结束于</option>
+          <option value="en">不结束于</option>
+          <option value="cn">包含</option>
+          <option value="nc">不包含</option>
+        </select>
+        <input type="text"/>
+
+        <button class="btn" id="submit_btn">查询</button>
+        <button class="btn" id="close_btn">关闭</button>
+    </div>
+    <button id="creat_iterm">creat</button>
+
+</body>
+</html>

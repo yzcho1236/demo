@@ -3,15 +3,16 @@
     角色
 {% endblock %}
 {% block content %}
-<a href="/role/add/">
-<button> 添加 </button>
-</a>
+    {% if "add_role" in perm %}
+          <a href="/role/add/">
+            <button> 添加 </button>
+        </a>
+    {% endif %}
 <table border="1">
 
       <tr>
         <th>角色id</th>
         <th>名称</th>
-        <th>操作</th>
       </tr>
 
     {% for i in data %}
@@ -19,17 +20,34 @@
 
         <th><input value="{{ i.id }}" readonly></th>
         <th><input value="{{ i.name }}" readonly></th>
+            {% if "change_role" in perm %}
         <th>
+
             <a href="/role/edit/?id={{ i.id }}">
             <button> 修改 </button>
             </a>
-            <a href="/role/delete/?id={{ i.id }}">
+        </th>
+            {% endif %}
+        {% if "delete_role" in perm %}
+            <th>
+             <a href="/role/delete/?id={{ i.id }}">
             <button> 删除 </button>
             </a>
-
+        {% endif %}
         </th>
       </tr>
     {% endfor %}
 </table>
+<br>
+<a href="/role/?page=1"><button> 第一页 </button></a>
+<a href="/role/?page={{ page| add:-1 }}"><button> 上一页 </button></a>
+
+<input id="curPage" type="text" size="5" value="{{ page }}">
+
+<a href="/role/?page={{ page| add:1 }}"><button> 下一页 </button></a>
+<a href="/role/?page={{ total_pages }}"><button> 最后一页 </button></a>
+
+&nbsp;&nbsp;&nbsp;共{{ total_pages }}页
+<br>
 {{ error }}
 {% endblock %}

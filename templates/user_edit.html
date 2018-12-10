@@ -6,9 +6,11 @@
  <form action="/user/edit/"  method="post">
   <label for="id">id:</label>
   <input type="text" name="id" value="{{ data.id }}" id="id" readonly>
-  <label for="username">username:</label>
+  <label for="username">用户名:</label>
   <input type="text" name="username" value="{{ data.username }}" id="username">
-  <label for="is_superuser">is_superuser:</label>
+  <label for="password">密码:</label>
+  <input type="text" name="password" value="{{ data.username }}" id="password">
+  <label for="is_superuser">是否是管理员:</label>
   <input type="text" name="is_superuser" value="{{ data.is_superuser }}" id="is_superuser">
     <br>
     <span class="con">{{ error }}</span>

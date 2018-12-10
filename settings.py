@@ -216,3 +216,5 @@ LOGGING = {
 }
 
 LOGIN_URL = '/login/'
+DEFAULT_PAGESIZE = 5
+

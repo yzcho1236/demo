@@ -1,18 +1,31 @@
+import operator
 import traceback
 
-from django.contrib.auth import authenticate
+import math
+
+import functools
+import urllib
+from io import BytesIO
+
+from django.contrib.auth import authenticate, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.core.serializers.json import DjangoJSONEncoder
 from django.db import transaction
+from django.db.models import Q
 from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
 from django.utils.decorators import method_decorator
+from django.utils.encoding import smart_str, force_str
 from django.views import View
 from django.contrib import auth
 from django.template.response import TemplateResponse
+from openpyxl import Workbook, load_workbook
+from openpyxl.cell import WriteOnlyCell
 
-from demo.form import UserForm, ItemForm, ItemAddForm, UserAddForm, RoleForm, RoleAddForm, PermissionAddForm, \
-    RegisterForm
-from demo.util import PermRequired, ItemRequired, UserRequired, RoleRequired, UserRoleRequired, RolePermRequired
+from demo.form import UserForm, ItemForm, ItemAddForm, RoleForm, RoleAddForm, PermissionAddForm, \
+    RegisterForm, UserEditForm
+from demo.util import PermRequired, ItemRequired, UserRequired, RoleRequired, UserRoleRequired, RolePermRequired, \
+    Pagination, _filter_map_jqgrid_django
 from input.models import Role, User, UserRole, RolePermission, Item, Perm
 
 from django.utils.functional import SimpleLazyObject
@@ -20,7 +33,7 @@ from django.utils.functional import SimpleLazyObject
 
 class WelcomePage(View):
     def get(self, request):
-        return HttpResponse("<h1>欢迎来到权限控制系统</h1>")
+        return TemplateResponse(request, "welcome_page.html")
 
 
 class Login(View):
@@ -36,7 +49,8 @@ class Login(View):
             try:
                 user_id = User.objects.get(username=username)
             except:
-                return TemplateResponse(request, "login.html", {"username": username, "password": password, "error": "用户名错误"})
+                return TemplateResponse(request, "login.html",
+                                        {"username": username, "password": password, "error": "用户名错误"})
             user = authenticate(request, username=user_id, password=password)
             if user:
                 auth.login(request, user)
@@ -44,9 +58,11 @@ class Login(View):
                     return HttpResponseRedirect(next_url)
                 return HttpResponseRedirect("/index/")
             else:
-                return TemplateResponse(request, "login.html", {"username": username, "password": password, "error": "密码错误"})
+                return TemplateResponse(request, "login.html",
+                                        {"username": username, "password": password, "error": "密码错误"})
         else:
-            return TemplateResponse(request, "login.html", {"username": username, "password": password, "error": "登录失败"})
+            return TemplateResponse(request, "login.html",
+                                    {"username": username, "password": password, "error": "登录失败"})
 
     def get(self, request, *args, **kwargs):
         next_url = request.GET.get("next", None)
@@ -95,7 +111,7 @@ class Register(View):
         else:
             data["error"] = "注册失败"
             return TemplateResponse(request, "register.html", data)
-        return HttpResponseRedirect('/')
+        return HttpResponseRedirect('/index/')
 
     def get(self, request, *args, **kwargs):
         return TemplateResponse(request, "register.html")
@@ -103,26 +119,175 @@ class Register(View):
 
 def index(request):
     perm = request.perm
-    return TemplateResponse(request, "index.html",{"perm":perm})
+    return TemplateResponse(request, "index.html", {"perm": perm})
 
 
-class ItemView(LoginRequiredMixin, PermRequired, View):
+class ItemView(View):
     """查看物料列表"""
     permission_required = 'view_item'
 
     def get(self, request, *args, **kwargs):
-        context = []
-        item = Item.objects.all().order_by('id')
-        for i in item:
+        fmt = request.GET.get('format', None)
+        if fmt is None:
+            data = self._get_data(request)
+            return TemplateResponse(request, "item.html", data)
+
+        elif fmt == 'spreadsheet':
+            # 下载 excel
+            json = self._get_data(request, in_page=False)
+            wb = Workbook(write_only=True)
+            title = "物料"
+            ws = wb.create_sheet(title)
+
+            # 写入excel头
+            file_headers = ('id', '代码', '名称', '条码')
+            headers = []
+            for h in file_headers:
+                cell = WriteOnlyCell(ws, value=h)
+                headers.append(cell)
+            ws.append(headers)
+
+            body_fields = ("id", "nr", "name", "barcode")
+            for data in json['data']:
+                body = []
+                for field in body_fields:
+                    if field in data:
+                        cell = WriteOnlyCell(ws, value=data[field])
+                        body.append(cell)
+                ws.append(body)
+
+            output = BytesIO()
+            wb.save(output)
+            response = HttpResponse(
+                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                content=output.getvalue()
+            )
+            response['Content-Disposition'] = "attachment; filename*=utf-8''%s.xlsx" % urllib.parse.quote(
+                force_str(title))
+            response['Cache-Control'] = "no-cache, no-store"
+            return response
+
+    def post(self, request, *args, **kwargs):
+        """上传Excel"""
+        for name, file in request.FILES.items():
+            wb = load_workbook(filename=file, read_only=True, data_only=True)
+            # 第一个sheet
+            sheet = wb[wb.sheetnames[0]]
+            row_count = 0
+            row_number = 1
+            # 对应表头是在第几列
+            headers_index = {}
+            # 对应表头与模型field的name
+            headers_field_name = {}
+            # 所有excel中的item
+
+            for row in sheet.iter_rows():
+                row_count += 1
+                if row_number == 1:
+                    row_number += 1
+                    # 获取excelheader
+                    _headers = [i.value for i in row]
+                    index = 0
+                    for h in _headers:
+                        for field in Item._meta.fields:
+                            if h == field.name.lower:
+                                headers_index[h] = index
+                                headers_field_name[h] = field.name
+                        index += 1
+                # 取值
+                else:
+                    values = [i.value for i in row]
+                    none_len = 0
+                    for v in values:
+                        if v is None:
+                            none_len += 1
+
+                    if none_len == len(values):
+                        continue
+                    for k, v in headers_index.items():
+                        value = values[v]
+                        field_name = headers_field_name[k]
+
+                        # 有id值进行更新或者创建，没有id值进行创建
+                        if headers_index["id"] and values[headers_index["id"]]:
+                            item = Item.objects.filter(id=value).first()
+                            if item:
+                                if field_name == 'nr' and value is not None:
+                                    item.nr = value
+                                elif field_name == 'name' and value is not None:
+                                    item.name = value
+                                elif field_name == 'barcode' and value is not None:
+                                    item.barcode = value
+                            else:
+                                item = Item()
+                                if field_name == 'nr' and value is not None:
+                                    item.nr = value
+                                elif field_name == 'name' and value is not None:
+                                    item.name = value
+                                elif field_name == 'barcode' and value is not None:
+                                    item.barcode = value
+                                try:
+                                    Item.objects.create(item)
+                                except Exception as e:
+                                    return HttpResponse(e)
+
+                        else:
+                            item = Item()
+                            if field_name == 'nr' and value is not None:
+                                item.nr = value
+                            elif field_name == 'name' and value is not None:
+                                item.nr = value
+                            elif field_name == 'barcode' and value is not None:
+                                item.nr = value
+                            try:
+                                Item.objects.create(item)
+                            except Exception as e:
+                                return HttpResponse(e)
+        return HttpResponse()
+
+    def _get_data(self, request, in_page=True, *args, **kwargs):
+        field = request.GET.get("field", None)
+        op = request.GET.get("op", None)
+        data = request.GET.get("data", None)
+        # q_filters = []
+        if field and op and data:
+
+            filter_fmt, exclude = _filter_map_jqgrid_django[op]
+            filter_str = smart_str(filter_fmt % {'field': field})
+
+            if filter_fmt.endswith('__in'):
+                filter_kwargs = {filter_str: data.split(',')}
+            else:
+                filter_kwargs = {filter_str: smart_str(data)}
+
+            if exclude:
+                # q_filters.append(~Q(**filter_kwargs))
+                query = ~Q(**filter_kwargs)
+            else:
+                # q_filters.append(Q(**filter_kwargs))
+                query = Q(**filter_kwargs)
+
+            # item_query = Item.objects.filter(functools.reduce(operator.iand, q_filters))
+            item_query = Item.objects.filter(query).order_by("id")
+        else:
+            item_query = Item.objects.all().order_by("id")
+        content = []
+        page = request.GET.get("page", 1)
+        count = float(item_query.count())
+        pagesize = request.pagesizes if in_page else count
+        pagination = Pagination(item_query, pagesize, page)
+        for i in pagination.get_objs():
             data = {
                 "id": i.id,
                 "nr": i.nr,
                 "name": i.name,
                 "barcode": i.barcode,
-                "perms":request.perm
             }
-            context.append(data)
-        return TemplateResponse(request, "item.html", {"data": context})
+            content.append(data)
+        data = {"page": page, "records": pagination.count, "total_pages": pagination.total_pages, "data": content,
+                "perm": request.perm}
+
+        return data
 
 
 class ItemEdit(LoginRequiredMixin, ItemRequired, View):
@@ -137,6 +302,7 @@ class ItemEdit(LoginRequiredMixin, ItemRequired, View):
                 "nr": item.nr,
                 "name": item.name,
                 "barcode": item.barcode,
+                "perm": request.perm
             }
         except:
             return HttpResponseRedirect("/item/?msg=数据查询失败")
@@ -186,6 +352,7 @@ class ItemDelete(LoginRequiredMixin, ItemRequired, View):
                 "nr": item.nr,
                 "name": item.name,
                 "barcode": item.barcode,
+                "perm": request.perm
             }
         except Exception as e:
             traceback.print_exc()
@@ -194,14 +361,25 @@ class ItemDelete(LoginRequiredMixin, ItemRequired, View):
         return TemplateResponse(request, "item_delete.html", {"data": data})
 
     def post(self, request, *args, **kwargs):
-        item_id = request.GET.get('item_id', None)
+        item_id = request.POST['id']
+        nr = request.POST['nr']
+        name = request.POST['name']
+        barcode = request.POST['barcode']
+        data = {
+            "id": item_id,
+            "nr": nr,
+            "name": name,
+            "barcode": barcode,
+        }
+
         with transaction.atomic(savepoint=False):
             # 创建保存点
             try:
                 item = Item.objects.get(id=item_id)
                 item.delete()
             except:
-                return HttpResponseRedirect("/item_delete/?msg=删除失败")
+                return TemplateResponse(request, "item_delete.html", {"data": data, "error": "编辑失败"})
+
             else:
                 return HttpResponseRedirect('/item/')
 
@@ -210,7 +388,8 @@ class ItemAdd(LoginRequiredMixin, ItemRequired, View):
     permission_required = "add_item"
 
     def get(self, request, *args, **kwargs):
-        return TemplateResponse(request, "item_add.html")
+
+        return TemplateResponse(request, "item_add.html", {"perm": request.perm})
 
     def post(self, request, *args, **kwargs):
         form = ItemAddForm(request.POST)
@@ -242,20 +421,23 @@ class UserView(LoginRequiredMixin, PermRequired, View):
     def get(self, request, *args, **kwargs):
         """获取用户列表"""
 
-        content = {
-            "error": "",
-            "data": []
+        content = []
+        page = request.GET.get("page", 1)
+        pagesize = request.pagesizes
+        user_query = User.objects.all().order_by("id")
+        pagination = Pagination(user_query, pagesize, page)
 
-        }
-        user = User.objects.all().order_by('id')
-        for i in user:
+        for i in pagination.get_objs():
             data = {
                 "id": i.id,
                 "username": i.username,
                 "is_superuser": i.is_superuser,
             }
-            content["data"].append(data)
-        return TemplateResponse(request, "user.html", content)
+            content.append(data)
+        all_data = {"page": page, "records": pagination.count, "total_pages": pagination.total_pages, "data": content,
+                    "perm": request.perm}
+
+        return TemplateResponse(request, "user.html", all_data)
 
 
 class UserEdit(LoginRequiredMixin, UserRequired, View):
@@ -268,6 +450,7 @@ class UserEdit(LoginRequiredMixin, UserRequired, View):
             data = {
                 "id": user.id,
                 "username": user.username,
+                "password": user.password,
                 "is_superuser": user.is_superuser,
             }
         except:
@@ -276,26 +459,40 @@ class UserEdit(LoginRequiredMixin, UserRequired, View):
         return TemplateResponse(request, "user_edit.html", {"data": data})
 
     def post(self, request, *args, **kwargs):
-        form = UserAddForm(request.POST)
+        form = UserEditForm(request.POST)
+        # 获取表单数据
+        user_id = request.POST.get('id')
+        username = request.POST.get('username')
+        is_superuser = request.POST.get('is_superuser')
+        password = request.POST.get('password')
+        data = {
+            "error": "",
+            "id": user_id,
+            "username": username,
+            "password": password,
+            "is_superuser": is_superuser
+        }
 
         if form.is_valid():
-            # 获取表单数据
-            user_id = form.cleaned_data['id']
-            username = form.cleaned_data['username']
-            is_superuser = form.cleaned_data['is_superuser']
             with transaction.atomic(savepoint=False):
                 # 创建保存点
                 try:
                     user = User.objects.get(id=user_id)
+                    user.password = password
                     user.username = username
                     user.is_superuser = is_superuser
                     user.save()
+                    # 用户更改密码后更新用户session设置
+                    update_session_auth_hash(request, user)
                 except:
-                    return TemplateResponse(request, "user_edit.html", {"error": "编辑失败"})
+                    data["error"] = "用户编辑失效"
+                    return TemplateResponse(request, "user_edit.html", data)
                 else:
                     return HttpResponseRedirect("/user/")
         else:
-            return TemplateResponse(request, "user_edit.html", {"error": "表单填写错误"})
+            data["error"] = "表单填写错误"
+            data["form"] = form
+            return TemplateResponse(request, "user_edit.html", data)
 
 
 class UserDelete(LoginRequiredMixin, UserRequired, View):
@@ -316,16 +513,25 @@ class UserDelete(LoginRequiredMixin, UserRequired, View):
         return TemplateResponse(request, "user_delete.html", {"data": data})
 
     def post(self, request, *args, **kwargs):
-        user_id = request.GET.get('user_id', None)
+        user_id = request.POST.get('id')
+        username = request.POST.get('username')
+        is_superuser = request.POST.get('is_superuser')
+        password = request.POST.get('password')
+        data = {
+            "error": "",
+            "id": user_id,
+            "username": username,
+            "is_superuser": is_superuser
+        }
+
         with transaction.atomic(savepoint=False):
             # 创建保存点
             try:
                 user = User.objects.get(id=user_id)
                 user.delete()
             except Exception as e:
-                print(e)
-                return HttpResponseRedirect("/user_delete/?msg=删除失败")
-
+                data["error"] = "删除用户失败"
+                return TemplateResponse(request, "user_delete.html", data)
             else:
                 return HttpResponseRedirect('/user/')
 
@@ -336,19 +542,22 @@ class RoleView(LoginRequiredMixin, PermRequired, View):
     def get(self, request, *args, **kwargs):
         """获取用户列表"""
 
-        content = {
-            "error": "",
-            "data": []
+        content = []
+        page = request.GET.get("page", 1)
+        pagesize = request.pagesizes
+        role_query = Role.objects.all().order_by("id")
+        pagination = Pagination(role_query, pagesize, page)
 
-        }
-        role = Role.objects.all().order_by('id')
-        for i in role:
+        for i in pagination.get_objs():
             data = {
                 "id": i.id,
                 "name": i.name,
             }
-            content["data"].append(data)
-        return TemplateResponse(request, "role.html", content)
+            content.append(data)
+        all_data = {"page": page, "records": pagination.count, "total_pages": pagination.total_pages, "data": content,
+                    "perm": request.perm}
+
+        return TemplateResponse(request, "role.html", all_data)
 
 
 class RoleEdit(LoginRequiredMixin, RoleRequired, View):
@@ -366,7 +575,7 @@ class RoleEdit(LoginRequiredMixin, RoleRequired, View):
         except:
             return HttpResponseRedirect("/role/?msg=查询角色信息失败")
 
-        return TemplateResponse(request, "role_edit.html", {"message": "物料数据返回成功", "data": data})
+        return TemplateResponse(request, "role_edit.html", {"data": data})
 
     def post(self, request, *args, **kwargs):
         form = RoleForm(request.POST)
@@ -442,19 +651,24 @@ class RoleDelete(LoginRequiredMixin, RoleRequired, View):
         except:
             return HttpResponseRedirect("/role/?msg=数据查询失败")
 
-        return TemplateResponse(request, "role_delete.html", {"message": "数据返回成功", "data": data})
+        return TemplateResponse(request, "role_delete.html", {"data": data})
 
     def post(self, request, *args, **kwargs):
-        role_id = request.POST.get('id', None)
+        id = request.POST.get('id', None)
+        name = request.POST.get('name', None)
+        data = {
+            "id": id,
+            "name": name,
 
+        }
         with transaction.atomic(savepoint=False):
             # 创建保存点
             try:
-                role = Role.objects.get(id=role_id)
+                role = Role.objects.get(id=id())
                 role.delete()
             except Exception as e:
-                print(e)
-                return HttpResponseRedirect("/role/delete/?msg=删除失败")
+                return TemplateResponse(request, "item_delete.html", {"data": data, "error": "编辑失败"})
+
             else:
                 return HttpResponseRedirect('/role/')
 
@@ -464,21 +678,23 @@ class PermissionView(LoginRequiredMixin, PermRequired, View):
     permission_required = "view_perm"
 
     def get(self, request, *args, **kwargs):
-        content = {
-            "message": "",
-            "data": []
-        }
-
-        perms = Perm.objects.all()
-        for i in perms:
+        content = []
+        page = request.GET.get("page", 1)
+        pagesize = request.pagesizes
+        role_query = Role.objects.all().order_by("id")
+        pagination = Pagination(role_query, pagesize, page)
+        for i in pagination.get_objs():
             data = {
                 "id": i.id,
                 "name": i.name,
                 "codename": i.codename
             }
-            content["data"].append(data)
+            content.append(data)
 
-        return TemplateResponse(request, "permission.html", content)
+        all_data = {"page": pagination.page, "records": pagination.count, "total_pages": pagination.total_pages,
+                    "data": content, "perm": request.perm}
+
+        return TemplateResponse(request, "permission.html", all_data)
 
 
 class UserRoleView(LoginRequiredMixin, PermRequired, View):
@@ -490,17 +706,21 @@ class UserRoleView(LoginRequiredMixin, PermRequired, View):
         content = {
             "error": "",
             "data": [],
-            "all_role_dict": []
-
+            "all_role_dict": [],
+            "perm": request.perm,
         }
         user_role_list = []
-        users = User.objects.all().order_by('id')
+        page = request.GET.get("page", 1)
+        pagesize = request.pagesizes
+        user_query = User.objects.all().order_by("id")
+        pagination = Pagination(user_query, pagesize, page)
+
         all_roles = Role.objects.all().values("id", "name").order_by('id')
         all_role_dict = {}
         for i in list(all_roles):
             all_role_dict[i["id"]] = i["name"]
 
-        for user in users:
+        for user in pagination.get_objs():
             roles = UserRole.objects.filter(user=user).values("role__name").order_by('id')
             roles_list = [i["role__name"] for i in list(roles)]
             user_role = {
@@ -511,6 +731,9 @@ class UserRoleView(LoginRequiredMixin, PermRequired, View):
             user_role_list.append(user_role)
         content["data"] = user_role_list
         content["all_role_dict"] = all_role_dict
+        content["page"] = pagination.page
+        content["records"] = pagination.count
+        content["total_pages"] = pagination.total_pages
 
         return TemplateResponse(request, "user_role.html", content)
 
@@ -531,32 +754,32 @@ class UserRoleEdit(LoginRequiredMixin, UserRoleRequired, View):
             all_role_dict[i["id"]] = i["name"]
 
         roles_list = [i["role__name"] for i in list(roles)]
-        user_role = {
+        data = {
             "id": user_id,
             "user": user.username,
             "roles_list": roles_list,
             "all_role_dict": all_role_dict
         }
-        return TemplateResponse(request, "user_role_edit.html", user_role)
+        return TemplateResponse(request, "user_role_edit.html", data)
 
     def post(self, request, *args, **kwargs):
-        user_id = request.POST["id"]
-        roles = request.POST['roles_arr']
+        user_id = request.POST.get("id")
+        user = request.POST.get('user')
+        roles = request.POST.get('array')
         role_list = roles.split(',')
+
         if roles:
             role_int_list = list(map(lambda x: int(x), list(filter(lambda x: type(x) is str, role_list))))
         else:
             role_int_list = []
         with transaction.atomic(savepoint=False):
             try:
-                user = User.objects.get(id=user_id)
                 UserRole.objects.filter(user=user).delete()
                 if role_int_list:
                     for i in role_int_list:
                         role = Role.objects.get(id=i)
                         UserRole.objects.create(user=user, role=role)
             except Exception as e:
-                print(e)
                 return HttpResponseRedirect("/user_role/edit/?msg=编辑用户角色信息失败")
 
             return HttpResponseRedirect("/user_role/")
@@ -570,11 +793,16 @@ class RolePermissionView(LoginRequiredMixin, PermRequired, View):
         content = {
             "error": "",
             "data": [],
-            "all_perm_dict": {}
+            "all_perm_dict": {},
+            "perm": request.perm
 
         }
+        page = request.GET.get("page", 1)
+        pagesize = request.pagesizes
+        roles_query = Role.objects.all().order_by('id')
+        pagination = Pagination(roles_query, pagesize, page)
+
         role_perm_list = []
-        roles = list(Role.objects.all().order_by('id'))
         all_perms = list(Perm.objects.all().values("id", "codename").order_by('id'))
         all_perm_dict = {}
         for i in all_perms:
@@ -589,8 +817,8 @@ class RolePermissionView(LoginRequiredMixin, PermRequired, View):
         #         "perm": perms_list,
         #     }
 
-        perms = list(RolePermission.objects.filter(role_id__in=[i.id for i in roles]))
-        for role in roles:
+        perms = list(RolePermission.objects.filter(role_id__in=[i.id for i in list(roles)]))
+        for role in pagination.get_objs():
             perms_ids = list(map(lambda x: x.permission_id, filter(lambda i: i.role_id == role.id, perms)))
             perms_list = list(
                 map(lambda x: x['codename'], filter(lambda i: perms_ids.__contains__(i["id"]), all_perms)))
@@ -603,6 +831,9 @@ class RolePermissionView(LoginRequiredMixin, PermRequired, View):
 
         content["data"] = role_perm_list
         content["all_perm_dict"] = all_perm_dict
+        content["page"] = pagination.page
+        content["records"] = pagination.count
+        content["total_pages"] = pagination.total_pages
         return TemplateResponse(request, "role_permission.html", content)
 
 
@@ -634,7 +865,7 @@ class RolePermissionEdit(LoginRequiredMixin, RolePermRequired, View):
 
     def post(self, request, *args, **kwargs):
         role_id = request.POST["id"]
-        permissions = request.POST['perms_arr']
+        permissions = request.POST['array']
         perm_list = permissions.split(',')
         # 判断权限是列表是否为空
         perm_int_list = set(
@@ -654,3 +885,11 @@ class RolePermissionEdit(LoginRequiredMixin, RolePermRequired, View):
             except:
                 return HttpResponseRedirect("/role_permission/edit/?msg=修改角色权限信息失败")
             return HttpResponseRedirect("/role_permission/")
+
+
+class ExcelOperation(LoginRequiredMixin, View):
+    def get(self, request, *args, **kwargs):
+        pass
+
+    def post(self, request, *args, **kwargs):
+        pass

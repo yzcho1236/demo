@@ -3,37 +3,160 @@
     物料
 {% endblock %}
 {% block content %}
-    <a href="/item/add/">
-<button> 添加 </button>
-</a>
-<table border="1">
 
-      <tr>
-        <th>物料id</th>
-        <th>代码</th>
-        <th>名称</th>
-        <th>条码</th>
-        <th>操作</th>
-      </tr>
+    <h3>物料展示</h3>
+    <div style="margin-left:370px">
+    {% if "add_item" in perm %}
+        <a href="/item/add/">
+            <button> 添加</button>
+        </a>&nbsp;&nbsp;&nbsp;
+    {% endif %}
+     <a>
+    <button data-toggle="modal" data-target="#myModal">查询</button>
+     </a>&nbsp;&nbsp;&nbsp;
+    <!--  定义模态框触发器，此处为按钮触发  -->
 
-    {% for i in data %}
+        <div class="modal fade" id="myModal"  tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+            <!--  定义模态框，过渡效果为淡入，id为myModal,tabindex=-1可以禁用使用tab切换，aria-labelledby用于引用模态框的标题，aria-hidden=true保持模态框在触发前窗口不可见  -->
+            <div class="modal-dialog">
+                <!--  显示模态框对话框模型（若不写下一个div则没有颜色）  -->
+                <div class="modal-content">
+                    <!--  显示模态框白色背景，所有内容都写在这个div里面  -->
+
+                    <div class="btn-info modal-header">
+                        <!--  模态框标题  -->
+                        <button type="button" class="close" data-dismiss="modal">&times;</button>
+                        <!--  关闭按钮  -->
+                        <h4>查询</h4>
+                        <!--  标题内容  -->
+                    </div>
+
+                    <div class="modal-body">
+                        <!--  模态框内容，我在此处添加一个表单 -->
+                        <div class="form-horizontal">
+                            <select id="field" onchange="s_change(this.options[this.selectedIndex].value)">
+                              <option selected="selected" value="id">id</option>
+                              <option value="nr">代码</option>
+                              <option value="name">名称</option>
+                              <option value="barcode">条码</option>
+                            </select>&nbsp;&nbsp;&nbsp;
+
+                            <select id="op">
+                              <option selected="selected" value="eq">等于</option>
+                              <option value="ne">不等于</option>
+                              <option value="lt">小于</option>
+                              <option value="le">小于等于</option>
+                              <option value="gt">大于</option>
+                              <option value="ge">大于等于</option>
+                              <option value="bw">开始于</option>
+                              <option value="bn">不开始于</option>
+                              <option value="in">属于</option>
+                              <option value="ni">不属于</option>
+                              <option value="ew">结束于</option>
+                              <option value="en">不结束于</option>
+                              <option value="cn">包含</option>
+                              <option value="nc">不包含</option>
+                            </select>&nbsp;&nbsp;&nbsp;
+                            <input type="text" value="" id="data"/>&nbsp;&nbsp;&nbsp;
+
+                            </div>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="submit" class="btn btn-info" id="search" onclick="Search()">查询</button>
+
+                        <button type="button" class="btn btn-default" data-dismiss="modal">取消</button>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+{#     <input type="file" id="btn_file" style="display:none">#}
+    <a>
+     <button data-toggle="modal" data-target="#myModal1" onclick="ExcelFile()">上传</button>
+    </a>&nbsp;&nbsp;&nbsp;
+            <div class="modal fade" id="myModal1"  tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+            <!--  定义模态框，过渡效果为淡入，id为myModal,tabindex=-1可以禁用使用tab切换，aria-labelledby用于引用模态框的标题，aria-hidden=true保持模态框在触发前窗口不可见  -->
+            <div class="modal-dialog">
+                <!--  显示模态框对话框模型（若不写下一个div则没有颜色）  -->
+                <div class="modal-content">
+                    <!--  显示模态框白色背景，所有内容都写在这个div里面  -->
+
+                    <div class="btn-info modal-header">
+                        <button type="button" class="close" data-dismiss="modal">&times;</button>
+                        <h4>导入Excel文件</h4>
+                    </div>
+                    <div> 文件第一行包含字段名</div>
+                    <div class="modal-body">
+                        <!--  模态框内容，我在此处添加一个表单 -->
+                        <div class="form-horizontal box">
+                            <button class="btn btn-info">导入文件</button>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="submit" class="btn btn-info" id="search" onclick="Search()">查询</button>
+
+                        <button type="button" class="btn btn-default" data-dismiss="modal">取消</button>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+    <a href="/item/?format=spreadsheet">
+    <button> 下载</button>&nbsp;&nbsp;&nbsp;
+    </a>
+    </div>
+    <br>
+    <br>
+    <br>
+    <table >
         <tr>
+            <th>代码</th>
+            <th>名称</th>
+            <th>条码</th>
+        </tr>
 
-        <th><input value="{{ i.id }}"></th>
-        <th><input value="{{ i.nr }}"></th>
-        <th><input value="{{ i.name }}" ></th>
-        <th><input value="{{ i.barcode }}" ></th>
-        <th>
-            <a href="/item/edit/?item_id={{ i.id }}">
-            <button> 修改 </button>
-            </a>
-            <a href="/item/delete/?item_id={{ i.id }}">
-            <button> 删除 </button>
-            </a>
+        {% for i in data %}
+            <tr>
 
-        </th>
-      </tr>
-    {% endfor %}
-</table>
-{{ error }}
+            <th><input value="{{ i.nr }}"></th>
+            <th><input value="{{ i.name }}"></th>
+            <th><input value="{{ i.barcode }}"></th>
+            {% if "change_item" in perm %}
+                <th>
+                    <a href="/item/edit/?item_id={{ i.id }}">
+                        <button> 修改</button>
+                    </a>
+                </th>
+            {% endif %}
+
+            {% if "delete_item" in perm %}
+                <th>
+                    <a href="/item/delete/?item_id={{ i.id }}">
+                        <button> 删除</button>
+                    </a>
+                </th>
+            {% endif %}
+        {% endfor %}
+    </table>
+    <br>
+    <br>
+    <br>
+    <a href="/item/?page=1"><button> 第一页 </button></a>
+    <a href="/item/?page={{ page| add:-1 }}"><button> 上一页 </button></a>
+
+    <input id="curPage" type="text" size="5" value="{{ page }}">
+
+    <a href="/item/?page={{ page| add:1 }}"><button> 下一页 </button></a>
+    <a href="/item/?page={{ total_pages }}"><button> 最后一页 </button></a>
+
+    &nbsp;&nbsp;&nbsp;共{{ total_pages }}页
+    <br>
+    {{ error }}
+
 {% endblock %}
+
+

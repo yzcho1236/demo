@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>模态框</title>
+    <link rel="stylesheet" href="http://cdn.static.runoob.com/libs/bootstrap/3.3.7/css/bootstrap.min.css"/>
+</head>
+<body>
+
+<div>
+    <button data-toggle="modal" data-target="#myModal">查询</button>
+
+    <!--  定义模态框触发器，此处为按钮触发  -->
+
+    <form method="post" action="#" class="form-horizontal" role="form" id="myForm" onsubmit="return ">
+        <div class="modal fade" id="myModal"  tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+            <!--  定义模态框，过渡效果为淡入，id为myModal,tabindex=-1可以禁用使用tab切换，aria-labelledby用于引用模态框的标题，aria-hidden=true保持模态框在触发前窗口不可见  -->
+            <div class="modal-dialog">
+                <!--  显示模态框对话框模型（若不写下一个div则没有颜色）  -->
+                <div class="modal-content">
+                    <!--  显示模态框白色背景，所有内容都写在这个div里面  -->
+
+                    <div class="btn-info modal-header">
+                        <!--  模态框标题  -->
+                        <button type="button" class="close" data-dismiss="modal">&times;</button>
+                        <!--  关闭按钮  -->
+                        <h4>查询</h4>
+                        <!--  标题内容  -->
+                    </div>
+
+                    <div class="modal-body">
+                        <!--  模态框内容，我在此处添加一个表单 -->
+                        <form class="form-horizontal" role="form">
+                            <select id="field">
+                              <option selected="selected" value="id">id</option>
+                              <option value="nr">代码</option>
+                              <option value="name">名称</option>
+                              <option value="barcode">条码</option>
+                            </select>&nbsp;&nbsp;&nbsp;
+
+                            <select id="op">
+                              <option selected="selected" value="eq">等于</option>
+                              <option value="ne">不等于</option>
+                              <option value="lt">小于</option>
+                              <option value="le">小于等于</option>
+                              <option value="gt">大于</option>
+                              <option value="ge">大于等于</option>
+                              <option value="bw">开始于</option>
+                              <option value="bn">不开始于</option>
+                              <option value="in">属于</option>
+                              <option value="ni">不属于</option>
+                              <option value="ew">结束于</option>
+                              <option value="en">不结束于</option>
+                              <option value="cn">包含</option>
+                              <option value="nc">不包含</option>
+                            </select>&nbsp;&nbsp;&nbsp;
+                            <input type="text" value=""/>&nbsp;&nbsp;&nbsp;
+
+                        </form>
+                    </div>
+
+                    <div class="modal-footer">
+                        <!--  模态框底部样式，一般是提交或者确定按钮 -->
+                        <button type="submit" class="btn btn-info">确定</button>
+                        <button type="button" class="btn btn-default" data-dismiss="modal">取消</button>
+                    </div>
+
+                </div><!-- /.modal-content -->
+            </div>
+        </div> <!-- /.modal -->
+    </form>
+</div>
+
+<!-- Bootstrap的所有插件都依赖于jQuery，必须在引入bootstrap.min.js前引入jQuery -->
+<script src="http://cdn.static.runoob.com/libs/jquery/2.1.1/jquery.min.js"></script>
+<!-- 压缩版的bootstrap.min.js包含了所有的Bootstrap数据API插件 -->
+<script src="http://cdn.static.runoob.com/libs/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+</body>
+</html>

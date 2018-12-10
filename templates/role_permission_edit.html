@@ -3,7 +3,8 @@
     用户角色编辑
 {% endblock %}
 {% block content %}
- <form onsubmit="Edit()" action="/role_permission/edit/" method="post">
+    <h3>角色权限编辑</h3>
+ <form  onsubmit="Edit()" action="/role_permission/edit/" method="post">
   <input type="hidden" name="id" value="{{ id }}" id="id">
  <br>
     <label for="role">角色:</label>
@@ -20,7 +21,7 @@
             {% endif %}
          {% endfor %}
 
-  <input type="hidden" name="perms_arr" value="" id="perms_arr">
+  <input type="hidden" name="array" value="" id="array">
 </th>
 
     <br>
@@ -31,17 +32,3 @@
 {% endblock %}
 
 </body>
-{% block style %}
-
-        Edit = function () {
-            var checked = $("input[type='checkbox']:checked").val([]);  //直接获取checkbox值的方法,将其放到数组中
-{#                         var checked=$('input[name='+UserId+']:checked').val([]);#}
-            var perms_arr = [];
-
-            for (var i = 0; i < checked.length; i++) {
-                perms_arr.push(checked[i].value)
-            }
-            document.getElementById('perms_arr').value = perms_arr;
-        }
-
-{% endblock %}

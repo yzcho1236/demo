@@ -3,7 +3,8 @@
     用户角色
 {% endblock %}
    {% block content %}
- <form  action="/user_role/edit/" method="post">
+       <h3>用户角色编辑</h3>
+ <form action="/user_role/edit/" onsubmit="Edit()" method="post">
   <input type="hidden" name="id" value="{{ id }}" id="id">
  <br>
     <label for="user">用户名:</label>
@@ -26,19 +27,7 @@
     <br>
     <span class="con">{{ error }}</span>
      <br>
-    <input type="submit" value="提交" onclick="Edit()"/>
+    <input type="submit" value="提交"/>
  </form>
 {% endblock %}
 
-{% block style %}
-        Edit = function () {
-            var checked = $("input[type='checkbox']:checked").val([]);  //直接获取checkbox值的方法,将其放到数组中
-            {#             var checked=$('input[name='+UserId+']:checked').val([]);#}
-            var roles_arr = [];
-
-            for (var i = 0; i < checked.length; i++) {
-                roles_arr.push(checked[i].value)
-            }
-            document.getElementById('roles_arr').value = roles_arr;
-        }
-{% endblock %}
