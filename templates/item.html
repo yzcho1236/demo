@@ -72,7 +72,6 @@
             </div>
         </div>
 
-{#     <input type="file" id="btn_file" style="display:none">#}
     <a>
      <button data-toggle="modal" data-target="#myModal1" onclick="ExcelFile()">上传</button>
     </a>&nbsp;&nbsp;&nbsp;
@@ -91,13 +90,18 @@
                     <div class="modal-body">
                         <!--  模态框内容，我在此处添加一个表单 -->
                         <div class="form-horizontal box">
-                            <button class="btn btn-info">导入文件</button>
+{#                             <input type="file" id="btn_file" style="display:none">#}
+{#                            <button class="btn btn-info b_div">导入文件</button>#}
+
+                         <form action="/item/" method="post" enctype="multipart/form-data">
+                                <input type="file" name="fileUpload" class="file_div"/>
+                                <input type="submit" value="上传文件" class="btn btn-info b_div"/>
+                                </form>
                         </div>
                     </div>
 
                     <div class="modal-footer">
-                        <button type="submit" class="btn btn-info" id="search" onclick="Search()">查询</button>
-
+                        <span class="con">{{ error }}</span>
                         <button type="button" class="btn btn-default" data-dismiss="modal">取消</button>
                     </div>
 

@@ -1,8 +1,9 @@
+import base64
 import operator
 import traceback
 
 import math
-
+import pickle
 import functools
 import urllib
 from io import BytesIO
@@ -169,89 +170,125 @@ class ItemView(View):
 
     def post(self, request, *args, **kwargs):
         """上传Excel"""
-        for name, file in request.FILES.items():
-            wb = load_workbook(filename=file, read_only=True, data_only=True)
-            # 第一个sheet
-            sheet = wb[wb.sheetnames[0]]
-            row_count = 0
-            row_number = 1
-            # 对应表头是在第几列
-            headers_index = {}
-            # 对应表头与模型field的name
-            headers_field_name = {}
-            # 所有excel中的item
+        if request.FILES and len(request.FILES) == 1:
+            count = 0
+            for filename, file in request.FILES.items():
+                if file.content_type == 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':
+                    count += 1
+            if count == 0:
+                data = self._get_data(request)
+                data["error"] = "没有上传文件"
+                return TemplateResponse(request, "item.html", data)
 
-            for row in sheet.iter_rows():
-                row_count += 1
-                if row_number == 1:
-                    row_number += 1
-                    # 获取excelheader
-                    _headers = [i.value for i in row]
-                    index = 0
-                    for h in _headers:
-                        for field in Item._meta.fields:
-                            if h == field.name.lower:
-                                headers_index[h] = index
-                                headers_field_name[h] = field.name
-                        index += 1
-                # 取值
-                else:
-                    values = [i.value for i in row]
-                    none_len = 0
-                    for v in values:
-                        if v is None:
-                            none_len += 1
+            else:
+                for name, file in request.FILES.items():
+                    wb = load_workbook(filename=file, read_only=True, data_only=True)
+                    # 第一个sheet
+                    sheet = wb[wb.sheetnames[0]]
+                    row_count = 0
+                    row_number = 1
+                    # 对应表头是在第几列
+                    headers_index = {}
+                    # Excel传入的字段和模型类字段的对应关系
+                    headers_field_name = {}
 
-                    if none_len == len(values):
-                        continue
-                    for k, v in headers_index.items():
-                        value = values[v]
-                        field_name = headers_field_name[k]
-
-                        # 有id值进行更新或者创建，没有id值进行创建
-                        if headers_index["id"] and values[headers_index["id"]]:
-                            item = Item.objects.filter(id=value).first()
-                            if item:
-                                if field_name == 'nr' and value is not None:
-                                    item.nr = value
-                                elif field_name == 'name' and value is not None:
-                                    item.name = value
-                                elif field_name == 'barcode' and value is not None:
-                                    item.barcode = value
-                            else:
-                                item = Item()
-                                if field_name == 'nr' and value is not None:
-                                    item.nr = value
-                                elif field_name == 'name' and value is not None:
-                                    item.name = value
-                                elif field_name == 'barcode' and value is not None:
-                                    item.barcode = value
-                                try:
-                                    Item.objects.create(item)
-                                except Exception as e:
-                                    return HttpResponse(e)
-
+                    for row in sheet.iter_rows():
+                        row_count += 1
+                        if row_number == 1:
+                            row_number += 1
+                            # 获取excelheader
+                            _headers = [i.value for i in row]
+                            index = 0
+                            for h in _headers:
+                                for field in Item._meta.fields:
+                                    if h == field.verbose_name:
+                                        headers_index[h] = index
+                                        headers_field_name[h] = field.name
+                                index += 1
+                        # 取值
                         else:
-                            item = Item()
-                            if field_name == 'nr' and value is not None:
-                                item.nr = value
-                            elif field_name == 'name' and value is not None:
-                                item.nr = value
-                            elif field_name == 'barcode' and value is not None:
-                                item.nr = value
-                            try:
-                                Item.objects.create(item)
-                            except Exception as e:
-                                return HttpResponse(e)
-        return HttpResponse()
+                            values = [i.value for i in row]
+                            none_len = 0
+                            for v in values:
+                                if v is None:
+                                    none_len += 1
+
+                            if none_len == len(values):
+                                continue
+                            # 有id值进行更新或者创建，没有id值进行创建
+                            if headers_index["id"] is not None and values[headers_index["id"]]:
+                                dict = {}
+                                item_query = Item.objects.filter(id=values[headers_index["id"]]).first()
+                                for k, v in headers_index.items():
+                                    value = values[v]
+                                    field_name = headers_field_name[k]
+                                    print(headers_index["id"])
+                                    print(values[headers_index["id"]])
+                                    # 有id值更新
+                                    if item_query:
+                                        if field_name == "id":
+                                            item_query.id = value
+                                        if field_name == 'nr' and value is not None:
+                                            item_query.nr = value
+                                        elif field_name == 'name' and value is not None:
+                                            item_query.name = value
+                                        elif field_name == 'barcode' and value is not None:
+                                            item_query.barcode = value
+                                    # 有id，是无效的id值创建
+                                    else:
+                                        if field_name == "id":
+                                            continue
+                                        if field_name == 'nr' and value is not None:
+                                            dict["nr"] = value
+                                        elif field_name == 'name' and value is not None:
+                                            dict["name"] = value
+                                        elif field_name == 'barcode' and value is not None:
+                                            dict["barcode"] = value
+                                if not item_query:
+                                    try:
+                                        Item.objects.create(nr=dict["nr"], name=dict["name"], barcode=dict["barcode"])
+                                    except Exception as e:
+                                        data = self._get_data(request)
+                                        data["error"] = "数据已存在，无法上传"
+                                        return TemplateResponse(request, "item.html", data)
+
+                            # 无id值创建
+                            else:
+                                dict = {}
+                                for k, v in headers_index.items():
+                                    value = values[v]
+                                    field_name = headers_field_name[k]
+                                    print(headers_index["id"])
+                                    print(values[headers_index["id"]])
+                                    if field_name == "id":
+                                        continue
+                                    if field_name == 'nr' and value is not None:
+                                        dict["nr"] = value
+                                    elif field_name == 'name' and value is not None:
+                                        dict["name"] = value
+                                    elif field_name == 'barcode' and value is not None:
+                                        dict["barcode"] = value
+                                try:
+                                    Item.objects.create(nr=dict["nr"], name=dict["name"], barcode=dict["barcode"])
+                                except Exception as e:
+                                    data = self._get_data(request)
+                                    data["error"] = "数据已存在，无法上传"
+                                    return TemplateResponse(request, "item.html", data)
+
+                data = self._get_data(request)
+                return TemplateResponse(request, "item.html", data)
+
+        else:
+            data = self._get_data(request)
+            data["error"] = "没有上传文件"
+            return TemplateResponse(request, "item.html", data)
 
     def _get_data(self, request, in_page=True, *args, **kwargs):
         field = request.GET.get("field", None)
         op = request.GET.get("op", None)
         data = request.GET.get("data", None)
-        # q_filters = []
+        page = request.GET.get("page", 1)
         if field and op and data:
-
             filter_fmt, exclude = _filter_map_jqgrid_django[op]
             filter_str = smart_str(filter_fmt % {'field': field})
 
@@ -261,18 +298,14 @@ class ItemView(View):
                 filter_kwargs = {filter_str: smart_str(data)}
 
             if exclude:
-                # q_filters.append(~Q(**filter_kwargs))
                 query = ~Q(**filter_kwargs)
             else:
-                # q_filters.append(Q(**filter_kwargs))
                 query = Q(**filter_kwargs)
 
-            # item_query = Item.objects.filter(functools.reduce(operator.iand, q_filters))
             item_query = Item.objects.filter(query).order_by("id")
         else:
             item_query = Item.objects.all().order_by("id")
         content = []
-        page = request.GET.get("page", 1)
         count = float(item_query.count())
         pagesize = request.pagesizes if in_page else count
         pagination = Pagination(item_query, pagesize, page)
@@ -284,8 +317,8 @@ class ItemView(View):
                 "barcode": i.barcode,
             }
             content.append(data)
-        data = {"page": page, "records": pagination.count, "total_pages": pagination.total_pages, "data": content,
-                "perm": request.perm}
+        data = {"page": page, "s": pagination.count, "total_pages": pagination.total_pages, "data": content,
+                "perm": request.perm, "error": ""}
 
         return data
 
@@ -452,7 +485,9 @@ class UserEdit(LoginRequiredMixin, UserRequired, View):
                 "username": user.username,
                 "password": user.password,
                 "is_superuser": user.is_superuser,
+                "perm": request.perm
             }
+
         except:
             return HttpResponseRedirect("/user/?msg=数据查询失败")
 
@@ -470,7 +505,8 @@ class UserEdit(LoginRequiredMixin, UserRequired, View):
             "id": user_id,
             "username": username,
             "password": password,
-            "is_superuser": is_superuser
+            "is_superuser": is_superuser,
+            "perm": request.perm
         }
 
         if form.is_valid():
@@ -478,7 +514,7 @@ class UserEdit(LoginRequiredMixin, UserRequired, View):
                 # 创建保存点
                 try:
                     user = User.objects.get(id=user_id)
-                    user.password = password
+                    user.set_password(password)
                     user.username = username
                     user.is_superuser = is_superuser
                     user.save()
@@ -506,6 +542,7 @@ class UserDelete(LoginRequiredMixin, UserRequired, View):
                 "id": user.id,
                 "username": user.username,
                 "is_superuser": user.is_superuser,
+                "perm": request.perm
             }
         except:
             return HttpResponseRedirect("/user/?msg=数据查询失败")
@@ -521,7 +558,8 @@ class UserDelete(LoginRequiredMixin, UserRequired, View):
             "error": "",
             "id": user_id,
             "username": username,
-            "is_superuser": is_superuser
+            "is_superuser": is_superuser,
+            "perm": request.perm
         }
 
         with transaction.atomic(savepoint=False):
@@ -552,6 +590,7 @@ class RoleView(LoginRequiredMixin, PermRequired, View):
             data = {
                 "id": i.id,
                 "name": i.name,
+                "perm": request.perm
             }
             content.append(data)
         all_data = {"page": page, "records": pagination.count, "total_pages": pagination.total_pages, "data": content,
@@ -571,6 +610,7 @@ class RoleEdit(LoginRequiredMixin, RoleRequired, View):
             data = {
                 "id": role.id,
                 "name": role.name,
+                "perm": request.perm
             }
         except:
             return HttpResponseRedirect("/role/?msg=查询角色信息失败")
@@ -583,7 +623,8 @@ class RoleEdit(LoginRequiredMixin, RoleRequired, View):
         name = request.POST['name']
         data = {
             "id": role_id,
-            "name": name
+            "name": name,
+            "perm": request.perm
         }
         if form.is_valid():
             # 获取表单数据
@@ -617,7 +658,8 @@ class RoleAdd(LoginRequiredMixin, RoleRequired, View):
             form = RoleAddForm(request.POST)
             name = request.POST['name']
             data = {
-                "name": name
+                "name": name,
+                "perm": request.perm
             }
 
             if form.is_valid():
@@ -647,6 +689,7 @@ class RoleDelete(LoginRequiredMixin, RoleRequired, View):
             data = {
                 "id": role.id,
                 "name": role.name,
+                "perm": request.perm
             }
         except:
             return HttpResponseRedirect("/role/?msg=数据查询失败")
@@ -659,12 +702,13 @@ class RoleDelete(LoginRequiredMixin, RoleRequired, View):
         data = {
             "id": id,
             "name": name,
+            "perm": request.perm
 
         }
         with transaction.atomic(savepoint=False):
             # 创建保存点
             try:
-                role = Role.objects.get(id=id())
+                role = Role.objects.get(id=id)
                 role.delete()
             except Exception as e:
                 return TemplateResponse(request, "item_delete.html", {"data": data, "error": "编辑失败"})
@@ -681,13 +725,14 @@ class PermissionView(LoginRequiredMixin, PermRequired, View):
         content = []
         page = request.GET.get("page", 1)
         pagesize = request.pagesizes
-        role_query = Role.objects.all().order_by("id")
-        pagination = Pagination(role_query, pagesize, page)
+        perm_query = Perm.objects.all().order_by("id")
+        pagination = Pagination(perm_query, pagesize, page)
         for i in pagination.get_objs():
             data = {
                 "id": i.id,
                 "name": i.name,
-                "codename": i.codename
+                "codename": i.codename,
+                "perm": request.perm
             }
             content.append(data)
 
@@ -758,7 +803,8 @@ class UserRoleEdit(LoginRequiredMixin, UserRoleRequired, View):
             "id": user_id,
             "user": user.username,
             "roles_list": roles_list,
-            "all_role_dict": all_role_dict
+            "all_role_dict": all_role_dict,
+            "perm": request.perm
         }
         return TemplateResponse(request, "user_role_edit.html", data)
 
@@ -817,7 +863,7 @@ class RolePermissionView(LoginRequiredMixin, PermRequired, View):
         #         "perm": perms_list,
         #     }
 
-        perms = list(RolePermission.objects.filter(role_id__in=[i.id for i in list(roles)]))
+        perms = list(RolePermission.objects.filter(role_id__in=[i.id for i in list(roles_query)]))
         for role in pagination.get_objs():
             perms_ids = list(map(lambda x: x.permission_id, filter(lambda i: i.role_id == role.id, perms)))
             perms_list = list(
@@ -858,7 +904,8 @@ class RolePermissionEdit(LoginRequiredMixin, RolePermRequired, View):
             "id": role.id,
             "role": role.name,
             "perms_list": perms_list,
-            "all_perm_dict": all_perm_dict
+            "all_perm_dict": all_perm_dict,
+            "perm": request.perm
         }
 
         return TemplateResponse(request, "role_permission_edit.html", role_perm)
@@ -885,11 +932,3 @@ class RolePermissionEdit(LoginRequiredMixin, RolePermRequired, View):
             except:
                 return HttpResponseRedirect("/role_permission/edit/?msg=修改角色权限信息失败")
             return HttpResponseRedirect("/role_permission/")
-
-
-class ExcelOperation(LoginRequiredMixin, View):
-    def get(self, request, *args, **kwargs):
-        pass
-
-    def post(self, request, *args, **kwargs):
-        pass
