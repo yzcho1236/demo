@@ -28,7 +28,6 @@ class Role(models.Model):
 
 class User(AbstractUser):
     """用户"""
-
     def has_perm(self, perm, obj=None):
         # 获取用户关联的所有角色对象
         if self.is_active and self.is_superuser:
@@ -75,7 +74,7 @@ class UserRole(models.Model):
 
 class Item(models.Model):
     """物料"""
-    id = models.AutoField( primary_key=True)
+    id = models.AutoField(primary_key=True)
     nr = models.CharField(max_length=300, unique=True, verbose_name="代码")
     name = models.CharField(max_length=300, verbose_name="名称")
     barcode = models.CharField(max_length=300, verbose_name="条码")

@@ -16,13 +16,13 @@ class ItemAddForm(forms.Form):
 
 class UserForm(forms.Form):
     username = forms.CharField()
-    password = forms.CharField()
+    password = forms.CharField(max_length=32)
 
 
 class RegisterForm(forms.Form):
     username = forms.CharField()
-    password1 = forms.CharField()
-    password2 = forms.CharField()
+    password1 = forms.CharField(max_length=32)
+    password2 = forms.CharField(max_length=32)
 
 
 class UserEditForm(forms.Form):

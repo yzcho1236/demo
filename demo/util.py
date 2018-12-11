@@ -47,19 +47,19 @@ class RolePermRequired(PermissionRequiredMixin):
 
 class Pagination(object):
     def __init__(self, queryset, pagesize, page=1):
-        self.page = page
         self.pagesize = pagesize
         self.queryset = queryset
         self.count = float(self.queryset.count())
         self.total_pages = int(math.ceil(self.count / self.pagesize))
-
-    def get_objs(self):
+        self.page = page
         if self.page:
             self.page = int(self.page)
         if self.page > self.total_pages:
             self.page = self.total_pages
         if self.page < 1:
             self.page = 1
+
+    def get_objs(self):
         cnt = (self.page - 1) * self.pagesize
         objs = self.queryset[cnt: cnt + self.pagesize]
         return objs

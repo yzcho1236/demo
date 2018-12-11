@@ -13,7 +13,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Q, AutoField, NOT_PROVIDED
 from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
 from django.utils.decorators import method_decorator
 from django.utils.encoding import smart_str, force_str
@@ -48,11 +48,11 @@ class Login(View):
         if form.is_valid():
             # 获取表单数据
             try:
-                user_id = User.objects.get(username=username)
+                user = User.objects.get(username=username)
             except:
                 return TemplateResponse(request, "login.html",
                                         {"username": username, "password": password, "error": "用户名错误"})
-            user = authenticate(request, username=user_id, password=password)
+            user = authenticate(request, username=username, password=password)
             if user:
                 auth.login(request, user)
                 if next_url:
@@ -126,6 +126,7 @@ def index(request):
 class ItemView(View):
     """查看物料列表"""
     permission_required = 'view_item'
+    file_headers = ('id', '代码', '名称', '条码')
 
     def get(self, request, *args, **kwargs):
         fmt = request.GET.get('format', None)
@@ -141,9 +142,9 @@ class ItemView(View):
             ws = wb.create_sheet(title)
 
             # 写入excel头
-            file_headers = ('id', '代码', '名称', '条码')
+            # file_headers = ('id', '代码', '名称', '条码')
             headers = []
-            for h in file_headers:
+            for h in self.file_headers:
                 cell = WriteOnlyCell(ws, value=h)
                 headers.append(cell)
             ws.append(headers)
@@ -215,6 +216,21 @@ class ItemView(View):
 
                             if none_len == len(values):
                                 continue
+                            upload_fields = [v for k, v in headers_field_name.items()]
+
+                            # 必传字段
+                            required_fields = set()
+                            for i in Item._meta.fields:
+                                if not i.blank and i.default == NOT_PROVIDED and not isinstance(i, AutoField):
+                                    required_fields.add(i.name)
+                            set_header = set(upload_fields)
+
+                            set_header.discard("id")
+                            if set_header != required_fields:
+                                data = self._get_data(request)
+                                data["error"] = "上传字段不全，请重新上传"
+                                return TemplateResponse(request, "item.html", data)
+
                             # 有id值进行更新或者创建，没有id值进行创建
                             if headers_index["id"] is not None and values[headers_index["id"]]:
                                 dict = {}
@@ -245,12 +261,18 @@ class ItemView(View):
                                         elif field_name == 'barcode' and value is not None:
                                             dict["barcode"] = value
                                 if not item_query:
+                                    if len(dict) != len(self.file_headers) - 1:
+                                        data = self._get_data(request)
+                                        data["error"] = "字段值不能为空"
+                                        return TemplateResponse(request, "item.html", data)
                                     try:
                                         Item.objects.create(nr=dict["nr"], name=dict["name"], barcode=dict["barcode"])
                                     except Exception as e:
                                         data = self._get_data(request)
                                         data["error"] = "数据已存在，无法上传"
                                         return TemplateResponse(request, "item.html", data)
+                                else:
+                                    item_query.save()
 
                             # 无id值创建
                             else:
@@ -258,8 +280,6 @@ class ItemView(View):
                                 for k, v in headers_index.items():
                                     value = values[v]
                                     field_name = headers_field_name[k]
-                                    print(headers_index["id"])
-                                    print(values[headers_index["id"]])
                                     if field_name == "id":
                                         continue
                                     if field_name == 'nr' and value is not None:
@@ -268,6 +288,12 @@ class ItemView(View):
                                         dict["name"] = value
                                     elif field_name == 'barcode' and value is not None:
                                         dict["barcode"] = value
+
+                                if len(dict) != len(self.file_headers) - 1:
+                                    data = self._get_data(request)
+                                    data["error"] = "字段值不能为空"
+                                    return TemplateResponse(request, "item.html", data)
+
                                 try:
                                     Item.objects.create(nr=dict["nr"], name=dict["name"], barcode=dict["barcode"])
                                 except Exception as e:
@@ -309,15 +335,16 @@ class ItemView(View):
         count = float(item_query.count())
         pagesize = request.pagesizes if in_page else count
         pagination = Pagination(item_query, pagesize, page)
-        for i in pagination.get_objs():
-            data = {
-                "id": i.id,
-                "nr": i.nr,
-                "name": i.name,
-                "barcode": i.barcode,
-            }
-            content.append(data)
-        data = {"page": page, "s": pagination.count, "total_pages": pagination.total_pages, "data": content,
+        # for i in pagination.get_objs():
+        #     data = {
+        #         "id": i.id,
+        #         "nr": i.nr,
+        #         "name": i.name,
+        #         "barcode": i.barcode,
+        #     }
+        #     content.append(data)
+        data = {"page": page, "s": pagination.count, "total_pages": pagination.total_pages,
+                "data": pagination.get_objs(),
                 "perm": request.perm, "error": ""}
 
         return data
@@ -514,7 +541,10 @@ class UserEdit(LoginRequiredMixin, UserRequired, View):
                 # 创建保存点
                 try:
                     user = User.objects.get(id=user_id)
-                    user.set_password(password)
+                    if len(password) > 32 and "pbkdf2_sha256" in password:
+                        user.password = password
+                    else:
+                        user.set_password(password)
                     user.username = username
                     user.is_superuser = is_superuser
                     user.save()
