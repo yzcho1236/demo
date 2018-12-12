@@ -1,4 +1,5 @@
 import base64
+import json
 import operator
 import traceback
 
@@ -9,8 +10,9 @@ import urllib
 from io import BytesIO
 
 from django.contrib.auth import authenticate, update_session_auth_hash
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.contrib.auth.views import logout_then_login
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db import transaction
 from django.db.models import Q, AutoField, NOT_PROVIDED
@@ -26,7 +28,7 @@ from openpyxl.cell import WriteOnlyCell
 from demo.form import UserForm, ItemForm, ItemAddForm, RoleForm, RoleAddForm, PermissionAddForm, \
     RegisterForm, UserEditForm
 from demo.util import PermRequired, ItemRequired, UserRequired, RoleRequired, UserRoleRequired, RolePermRequired, \
-    Pagination, _filter_map_jqgrid_django
+    Pagination, _filter_map_jqgrid_django, perm_required
 from input.models import Role, User, UserRole, RolePermission, Item, Perm
 
 from django.utils.functional import SimpleLazyObject
@@ -77,6 +79,7 @@ class LogoutView(View):
 
     def get(self, request):
         auth.logout(request)
+        # logout_then_login(request)
         return HttpResponseRedirect('/')
 
 
@@ -125,9 +128,10 @@ def index(request):
 
 class ItemView(View):
     """查看物料列表"""
-    permission_required = 'view_item'
     file_headers = ('id', '代码', '名称', '条码')
 
+    @method_decorator(login_required)
+    @method_decorator(perm_required(("view_item",)))
     def get(self, request, *args, **kwargs):
         fmt = request.GET.get('format', None)
         if fmt is None:
@@ -141,8 +145,6 @@ class ItemView(View):
             title = "物料"
             ws = wb.create_sheet(title)
 
-            # 写入excel头
-            # file_headers = ('id', '代码', '名称', '条码')
             headers = []
             for h in self.file_headers:
                 cell = WriteOnlyCell(ws, value=h)
@@ -169,6 +171,8 @@ class ItemView(View):
             response['Cache-Control'] = "no-cache, no-store"
             return response
 
+    @method_decorator(login_required)
+    @method_decorator(perm_required(("add_item",)))
     def post(self, request, *args, **kwargs):
         """上传Excel"""
         if request.FILES and len(request.FILES) == 1:
@@ -238,8 +242,6 @@ class ItemView(View):
                                 for k, v in headers_index.items():
                                     value = values[v]
                                     field_name = headers_field_name[k]
-                                    print(headers_index["id"])
-                                    print(values[headers_index["id"]])
                                     # 有id值更新
                                     if item_query:
                                         if field_name == "id":
@@ -310,39 +312,50 @@ class ItemView(View):
             return TemplateResponse(request, "item.html", data)
 
     def _get_data(self, request, in_page=True, *args, **kwargs):
-        field = request.GET.get("field", None)
-        op = request.GET.get("op", None)
-        data = request.GET.get("data", None)
+        # 查询的条件
+        q_filters = []
+        # 查询的字段
+        filter_fields = ("id", "nr", "name", "barcode")
+        # 获取到的页面数
         page = request.GET.get("page", 1)
-        if field and op and data:
-            filter_fmt, exclude = _filter_map_jqgrid_django[op]
-            filter_str = smart_str(filter_fmt % {'field': field})
+        query_data = dict(request.GET.lists())
+        if "field" in query_data and "op" in query_data and "data" in query_data:
+            data_query = list(filter(lambda x: x, query_data["data"]))
+            len_data = len(data_query)
+            fields = query_data["field"]
+            ops = query_data["op"]
+            fs = []
+            for i in range(0, len_data):
+                adict = {}
+                if fields[i] in filter_fields:
+                    adict["field"] = fields[i]
+                    adict["op"] = ops[i]
+                    adict["data"] = data_query[i]
+                    fs.append(adict)
+                else:
+                    continue
+            for rule in fs:
+                op, field, data = rule['op'], rule['field'], rule['data']
+                filter_fmt, exclude = _filter_map_jqgrid_django[op]
+                filter_str = smart_str(filter_fmt % {'field': field})
 
-            if filter_fmt.endswith('__in'):
-                filter_kwargs = {filter_str: data.split(',')}
-            else:
-                filter_kwargs = {filter_str: smart_str(data)}
+                if filter_fmt.endswith('__in'):
+                    filter_kwargs = {filter_str: data.split(',')}
+                else:
+                    filter_kwargs = {filter_str: smart_str(data)}
 
-            if exclude:
-                query = ~Q(**filter_kwargs)
-            else:
-                query = Q(**filter_kwargs)
+                if exclude:
+                    q_filters.append(~Q(**filter_kwargs))
+                else:
+                    q_filters.append(Q(**filter_kwargs))
 
-            item_query = Item.objects.filter(query).order_by("id")
+        if q_filters:
+            item_query = Item.objects.filter(functools.reduce(operator.iand, q_filters)).order_by("id")
         else:
             item_query = Item.objects.all().order_by("id")
-        content = []
         count = float(item_query.count())
         pagesize = request.pagesizes if in_page else count
         pagination = Pagination(item_query, pagesize, page)
-        # for i in pagination.get_objs():
-        #     data = {
-        #         "id": i.id,
-        #         "nr": i.nr,
-        #         "name": i.name,
-        #         "barcode": i.barcode,
-        #     }
-        #     content.append(data)
         data = {"page": page, "s": pagination.count, "total_pages": pagination.total_pages,
                 "data": pagination.get_objs(),
                 "perm": request.perm, "error": ""}
@@ -541,14 +554,14 @@ class UserEdit(LoginRequiredMixin, UserRequired, View):
                 # 创建保存点
                 try:
                     user = User.objects.get(id=user_id)
-                    if len(password) > 32 and "pbkdf2_sha256" in password:
+                    if len(password) > 32 and password.startswith("pbkdf2_sha256"):
                         user.password = password
                     else:
                         user.set_password(password)
                     user.username = username
                     user.is_superuser = is_superuser
                     user.save()
-                    # 用户更改密码后更新用户session设置
+                    # 用户更改密码后更新用户session设置，更改用户密码后不进行自动登出
                     update_session_auth_hash(request, user)
                 except:
                     data["error"] = "用户编辑失效"
@@ -842,15 +855,15 @@ class UserRoleEdit(LoginRequiredMixin, UserRoleRequired, View):
         user_id = request.POST.get("id")
         user = request.POST.get('user')
         roles = request.POST.get('array')
-        role_list = roles.split(',')
 
         if roles:
+            role_list = roles.split(',')
             role_int_list = list(map(lambda x: int(x), list(filter(lambda x: type(x) is str, role_list))))
         else:
             role_int_list = []
         with transaction.atomic(savepoint=False):
             try:
-                UserRole.objects.filter(user=user).delete()
+                UserRole.objects.filter(user_id=user_id).delete()
                 if role_int_list:
                     for i in role_int_list:
                         role = Role.objects.get(id=i)

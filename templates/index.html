@@ -54,10 +54,10 @@
 <button> 退出登录 </button>
 </a>
 <ul>
-    {% if "view_item" in perm %}
+{#    {% if "view_item" in perm %}#}
         <li><a href="/item/">物料</a></li>
         <br>
-    {% endif %}
+{#    {% endif %}#}
 
     {% if "view_user" in perm %}
       <li><a href="/user/">用户管理</a></li>

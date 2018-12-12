@@ -30,18 +30,19 @@
                         <h4>查询</h4>
                         <!--  标题内容  -->
                     </div>
-
+                    <form action="/item/" method="get">
                     <div class="modal-body">
                         <!--  模态框内容，我在此处添加一个表单 -->
-                        <div class="form-horizontal">
-                            <select id="field" onchange="s_change(this.options[this.selectedIndex].value)">
+                        <div class="form-horizontal" id="xxx">
+                            <div id="1">
+                              <select id="field" name="field">
                               <option selected="selected" value="id">id</option>
                               <option value="nr">代码</option>
                               <option value="name">名称</option>
                               <option value="barcode">条码</option>
                             </select>&nbsp;&nbsp;&nbsp;
 
-                            <select id="op">
+                            <select id="op" name="op">
                               <option selected="selected" value="eq">等于</option>
                               <option value="ne">不等于</option>
                               <option value="lt">小于</option>
@@ -57,8 +58,62 @@
                               <option value="cn">包含</option>
                               <option value="nc">不包含</option>
                             </select>&nbsp;&nbsp;&nbsp;
-                            <input type="text" value="" id="data"/>&nbsp;&nbsp;&nbsp;
+                            <input type="text" value="" id="data" name="data"/>&nbsp;&nbsp;&nbsp;
+                            </div>
+                            <div id="2">
+                              <select id="field"  name="field">
+                              <option selected="selected" value="id">id</option>
+                              <option value="nr">代码</option>
+                              <option value="name">名称</option>
+                              <option value="barcode">条码</option>
+                            </select>&nbsp;&nbsp;&nbsp;
 
+                            <select id="op" name="op">
+                              <option selected="selected" value="eq">等于</option>
+                              <option value="ne">不等于</option>
+                              <option value="lt">小于</option>
+                              <option value="le">小于等于</option>
+                              <option value="gt">大于</option>
+                              <option value="ge">大于等于</option>
+                              <option value="bw">开始于</option>
+                              <option value="bn">不开始于</option>
+                              <option value="in">属于</option>
+                              <option value="ni">不属于</option>
+                              <option value="ew">结束于</option>
+                              <option value="en">不结束于</option>
+                              <option value="cn">包含</option>
+                              <option value="nc">不包含</option>
+                            </select>&nbsp;&nbsp;&nbsp;
+                            <input type="text" value="" id="data" name="data"/>&nbsp;&nbsp;&nbsp;
+                            </div>
+                            <div id="3">
+                              <select id="field"  name="field">
+                              <option selected="selected" value="id">id</option>
+                              <option value="nr">代码</option>
+                              <option value="name">名称</option>
+                              <option value="barcode">条码</option>
+                            </select>&nbsp;&nbsp;&nbsp;
+
+                            <select id="op" name="op">
+                              <option selected="selected" value="eq">等于</option>
+                              <option value="ne">不等于</option>
+                              <option value="lt">小于</option>
+                              <option value="le">小于等于</option>
+                              <option value="gt">大于</option>
+                              <option value="ge">大于等于</option>
+                              <option value="bw">开始于</option>
+                              <option value="bn">不开始于</option>
+                              <option value="in">属于</option>
+                              <option value="ni">不属于</option>
+                              <option value="ew">结束于</option>
+                              <option value="en">不结束于</option>
+                              <option value="cn">包含</option>
+                              <option value="nc">不包含</option>
+                            </select>&nbsp;&nbsp;&nbsp;
+                            <input type="text" value="" id="data" name="data"/>&nbsp;&nbsp;&nbsp;
+                            </div>
+
+                            <br>
                             </div>
                     </div>
 
@@ -67,7 +122,7 @@
 
                         <button type="button" class="btn btn-default" data-dismiss="modal">取消</button>
                     </div>
-
+                    </form>
                 </div>
             </div>
         </div>
@@ -150,11 +205,13 @@
     <br>
     <br>
     <a href="/item/?page=1"><button> 第一页 </button></a>
+
     <a href="/item/?page={{ page| add:-1 }}"><button> 上一页 </button></a>
 
     <input id="curPage" type="text" size="5" value="{{ page }}">
 
     <a href="/item/?page={{ page| add:1 }}"><button> 下一页 </button></a>
+
     <a href="/item/?page={{ total_pages }}"><button> 最后一页 </button></a>
 
     &nbsp;&nbsp;&nbsp;共{{ total_pages }}页

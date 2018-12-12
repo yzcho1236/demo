@@ -25,9 +25,9 @@
         if(r!=null){
             //decodeURI() 函数可对 encodeURI() 函数编码过的 URI 进行解码
             return  decodeURI(r[2]);
-        };
+        }
         return null;
-    };
+    }
     //页面加载后立即执行
     window.onload=function(){
 //使用GetUrlByParamName()方法获取url中参数名为questionnaireName的参数内容
@@ -55,12 +55,23 @@
     }
 
     function Search() {
-        var field = $('#field option:selected').val();
-        var op = $('#op option:selected').val();
-        var data = document.getElementById("data").value;
+        var obj = {
+            "g":"A",
+            "rules":[]
+        };
+        var i, child = $('#xxx').children();
+        for (i =0; i< child.length;i++){
+{#            var field = child[i].children('#field option:selected').val();#}
+            console.log(child[i].children('#field'));
+            debugger;
+            var op = $('#op option:selected').val();
+            var data = document.getElementById("data").value;
+
+
+        }
 
         {# 在URL路径中 #}
-        window.location.href = "/item?field="+ field + "&op=" + op + "&data=" + data;
+{#        window.location.href = "/item?field="+ field + "&op=" + op + "&data=" + data;#}
     }
 
 </script>
