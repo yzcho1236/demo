@@ -43,11 +43,11 @@
 
 <br>
 <a href="/role_permission/?page=1"><button> 第一页 </button></a>
-<a href="/role_permission/?page={{ page| add:-1 }}"><button> 上一页 </button></a>
+<a onclick="PrePage({{ page }},{{ total_pages }})"><button> 上一页 </button></a>
 
 <input id="curPage" type="text" size="5" value="{{ page }}">
 
-<a href="/role_permission/?page={{ page| add:1 }}"><button> 下一页 </button></a>
+<a onclick="NextPage({{ page }},{{ total_pages }})"><button> 下一页 </button></a>
 <a href="/role_permission/?page={{ total_pages }}"><button> 最后一页 </button></a>
 
 &nbsp;&nbsp;&nbsp;共{{ total_pages }}页

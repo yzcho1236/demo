@@ -74,6 +74,47 @@
 {#        window.location.href = "/item?field="+ field + "&op=" + op + "&data=" + data;#}
     }
 
+    function Query_Url(query) {
+        window.location.href = "/item/?format=spreadsheet&field="+ query[0]["field"]+"&op="+query[0]["op"]+"&data="+
+            query[0]["data"]+"&field="+query[1]["field"]+"&op="+query[1]["op"]+"&data="+query[1]["data"]
+            +"&field="+query[2]["field"]+"&op="+query[2]["op"]+"&data="+query[2]["data"]
+    }
+
+    function NextPage(page,total_pages) {
+        var i;
+        if (page >= total_pages)
+    {
+        window.location.href = "/item/?page="+total_pages;
+    }
+        else if (page < 1)
+    {
+        window.location.href = "/item/?page="+1;
+    }
+    else
+    {   i = page + 1;
+        window.location.href = "/item/?page="+i;
+    }
+}
+
+    function PrePage(page,total_pages) {
+        var i;
+        if (page > total_pages)
+    {
+        window.location.href = "/item/?page="+total_pages;
+    }
+        else if (page <= 1)
+    {
+        window.location.href = "/item/?page="+1;
+    }
+    else
+    {
+        i = page -1;
+        window.location.href = "/item/?page="+i;
+    }
+}
+
+
+
 </script>
 
 <style type="text/css">

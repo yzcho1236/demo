@@ -45,8 +45,8 @@ class Login(View):
         next_url = request.POST.get("next_url", None)
         if next_url == "None":
             next_url = None
-        username = request.POST['username']
-        password = request.POST['password']
+        username = request.POST.get('username', None)
+        password = request.POST.get('password', None)
         if form.is_valid():
             # 获取表单数据
             try:
@@ -319,19 +319,35 @@ class ItemView(View):
         # 获取到的页面数
         page = request.GET.get("page", 1)
         query_data = dict(request.GET.lists())
-        if "field" in query_data and "op" in query_data and "data" in query_data:
+        if "data" in query_data and "op" in query_data and "data" in query_data:
+            if request.session.get("query_data", None):
+                del request.session["query_data"]
             data_query = list(filter(lambda x: x, query_data["data"]))
-            len_data = len(data_query)
+            data = query_data["data"]
+            len_data = len(data)
+            len_data_query = len(data_query)
             fields = query_data["field"]
             ops = query_data["op"]
+            # 查询的有效列表
             fs = []
-            for i in range(0, len_data):
+            # 查询的所有列表
+            query_list = []
+            for i in range(0, len_data_query):
                 adict = {}
                 if fields[i] in filter_fields:
                     adict["field"] = fields[i]
                     adict["op"] = ops[i]
                     adict["data"] = data_query[i]
                     fs.append(adict)
+                else:
+                    continue
+            for i in range(0, len_data):
+                adict = {}
+                if fields[i] in filter_fields:
+                    adict["field"] = fields[i]
+                    adict["op"] = ops[i]
+                    adict["data"] = data[i]
+                    query_list.append(adict)
                 else:
                     continue
             for rule in fs:
@@ -348,7 +364,7 @@ class ItemView(View):
                     q_filters.append(~Q(**filter_kwargs))
                 else:
                     q_filters.append(Q(**filter_kwargs))
-
+            request.session["query_data"] = query_list
         if q_filters:
             item_query = Item.objects.filter(functools.reduce(operator.iand, q_filters)).order_by("id")
         else:
@@ -356,11 +372,21 @@ class ItemView(View):
         count = float(item_query.count())
         pagesize = request.pagesizes if in_page else count
         pagination = Pagination(item_query, pagesize, page)
-        data = {"page": page, "s": pagination.count, "total_pages": pagination.total_pages,
-                "data": pagination.get_objs(),
-                "perm": request.perm, "error": ""}
+        query = request.session.get("query_data", None) if request.session.get("query_data", None) else []
+        content = []
+        for i in pagination.get_objs():
+            data = {
+                "id": i.id,
+                "nr": i.nr,
+                "name": i.name,
+                "barcode": i.barcode,
+            }
+            content.append(data)
+        all_data = {"page": page, "s": pagination.count, "total_pages": pagination.total_pages,
+                    "data": content,
+                    "perm": request.perm, "query": query, "error": ""}
 
-        return data
+        return all_data
 
 
 class ItemEdit(LoginRequiredMixin, ItemRequired, View):

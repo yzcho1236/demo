@@ -6,17 +6,18 @@
 
     <h3>物料展示</h3>
     <div style="margin-left:370px">
-    {% if "add_item" in perm %}
-        <a href="/item/add/">
-            <button> 添加</button>
+        {% if "add_item" in perm %}
+            <a href="/item/add/">
+                <button> 添加</button>
+            </a>&nbsp;&nbsp;&nbsp;
+        {% endif %}
+        <a>
+            <button data-toggle="modal" data-target="#myModal">查询</button>
         </a>&nbsp;&nbsp;&nbsp;
-    {% endif %}
-     <a>
-    <button data-toggle="modal" data-target="#myModal">查询</button>
-     </a>&nbsp;&nbsp;&nbsp;
-    <!--  定义模态框触发器，此处为按钮触发  -->
+        <!--  定义模态框触发器，此处为按钮触发  -->
 
-        <div class="modal fade" id="myModal"  tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+        <div class="modal fade" id="myModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel"
+             aria-hidden="true">
             <!--  定义模态框，过渡效果为淡入，id为myModal,tabindex=-1可以禁用使用tab切换，aria-labelledby用于引用模态框的标题，aria-hidden=true保持模态框在触发前窗口不可见  -->
             <div class="modal-dialog">
                 <!--  显示模态框对话框模型（若不写下一个div则没有颜色）  -->
@@ -31,106 +32,354 @@
                         <!--  标题内容  -->
                     </div>
                     <form action="/item/" method="get">
-                    <div class="modal-body">
-                        <!--  模态框内容，我在此处添加一个表单 -->
-                        <div class="form-horizontal" id="xxx">
-                            <div id="1">
-                              <select id="field" name="field">
-                              <option selected="selected" value="id">id</option>
-                              <option value="nr">代码</option>
-                              <option value="name">名称</option>
-                              <option value="barcode">条码</option>
-                            </select>&nbsp;&nbsp;&nbsp;
+                        <div class="modal-body">
+                            <!--  模态框内容，我在此处添加一个表单 -->
+                            <div class="form-horizontal" id="xxx">
+                                <div>
+                                    <select id="field" name="field">
+                                        {% if query.0.field == "id" %}
+                                            <option selected="selected" value="id">id</option>
+                                        {% else %}
+                                            <option value="id">id</option>
+                                        {% endif %}
+                                        {% if query.0.field == "nr" %}
+                                            <option selected="selected" value="nr">代码</option>
+                                        {% else %}
+                                            <option value="nr">代码</option>
+                                        {% endif %}
 
-                            <select id="op" name="op">
-                              <option selected="selected" value="eq">等于</option>
-                              <option value="ne">不等于</option>
-                              <option value="lt">小于</option>
-                              <option value="le">小于等于</option>
-                              <option value="gt">大于</option>
-                              <option value="ge">大于等于</option>
-                              <option value="bw">开始于</option>
-                              <option value="bn">不开始于</option>
-                              <option value="in">属于</option>
-                              <option value="ni">不属于</option>
-                              <option value="ew">结束于</option>
-                              <option value="en">不结束于</option>
-                              <option value="cn">包含</option>
-                              <option value="nc">不包含</option>
-                            </select>&nbsp;&nbsp;&nbsp;
-                            <input type="text" value="" id="data" name="data"/>&nbsp;&nbsp;&nbsp;
+                                        {% if query.0.field == "name" %}
+                                            <option selected="selected" value="name">名称</option>
+                                        {% else %}
+                                            <option value="name">名称</option>
+                                        {% endif %}
+
+                                        {% if query.0.field == "barcode" %}
+                                            <option selected="selected" value="barcode">条码</option>
+                                        {% else %}
+                                            <option value="barcode">条码</option>
+                                        {% endif %}
+
+                                    </select>&nbsp;&nbsp;&nbsp;
+                                    <select id="op" name="op">
+
+                                        {% if query.0.op == "eq" %}
+                                            <option selected="selected" value="eq">等于</option>
+                                        {% else %}
+                                            <option value="eq">等于</option>
+                                        {% endif %}
+
+                                        {% if query.0.op == "ne" %}
+                                            <option selected="selected" value="ne">不等于</option>
+                                        {% else %}
+                                            <option value="ne">不等于</option>
+                                        {% endif %}
+
+                                        {% if query.0.op == "lt" %}
+                                            <option selected="selected" value="lt">小于</option>
+                                        {% else %}
+                                            <option value="lt">小于</option>
+                                        {% endif %}
+
+                                        {% if query.0.op == "le" %}
+                                            <option selected="selected" value="le">小于等于</option>
+                                        {% else %}
+                                            <option value="le">小于等于</option>
+                                        {% endif %}
+
+                                        {% if query.0.op == "gt" %}
+                                            <option selected="selected" value="gt">大于</option>
+                                        {% else %}
+                                            <option value="gt">大于</option>
+                                        {% endif %}
+
+                                        {% if query.0.op == "ge" %}
+                                            <option selected="selected" value="ge">大于等于</option>
+                                        {% else %}
+                                            <option value="ge">大于等于</option>
+                                        {% endif %}
+
+                                        {% if query.0.op == "bw" %}
+                                            <option selected="selected" value="bw">开始于</option>
+                                        {% else %}
+                                            <option value="bw">开始于</option>
+                                        {% endif %}
+
+                                        {% if query.0.op == "bn" %}
+                                            <option selected="selected" value="bn">不开始于</option>
+                                        {% else %}
+                                            <option value="bn">不开始于</option>
+                                        {% endif %}
+                                        {% if query.0.op == "in" %}
+                                            <option selected="selected" value="in">属于</option>
+                                        {% else %}
+                                            <option value="in">属于</option>
+                                        {% endif %}
+                                        {% if query.0.op == "ni" %}
+                                            <option selected="selected" value="ni">不属于</option>
+                                        {% else %}
+                                            <option value="ni">不属于</option>
+                                        {% endif %}
+                                        {% if query.0.op == "ew" %}
+                                            <option selected="selected" value="ew">结束于</option>
+                                        {% else %}
+                                            <option value="ew">结束于</option>
+                                        {% endif %}
+                                        {% if query.0.op == "en" %}
+                                            <option selected="selected" value="en">不结束于</option>
+                                        {% else %}
+                                            <option value="en">不结束于</option>
+                                        {% endif %}
+                                        {% if query.0.op == "cn" %}
+                                            <option selected="selected" value="cn">包含</option>
+                                        {% else %}
+                                            <option value="cn">包含</option>
+                                        {% endif %}
+                                        {% if query.0.op == "cn" %}
+                                            <option selected="selected" value="nc">不包含</option>
+                                        {% else %}
+                                            <option value="nc">不包含</option>
+                                        {% endif %}
+
+                                    </select>&nbsp;&nbsp;&nbsp;
+                                    <input type="text" value="{{ query.0.data }}" id="data" name="data"/>&nbsp;&nbsp;&nbsp;
+                                </div>
+                                <div>
+                                    <select id="field" name="field">
+                                        {% if query.1.field == "id" %}
+                                            <option selected="selected" value="id">id</option>
+                                        {% else %}
+                                            <option value="id">id</option>
+                                        {% endif %}
+                                        {% if query.1.field == "nr" %}
+                                            <option selected="selected" value="nr">代码</option>
+                                        {% else %}
+                                            <option value="nr">代码</option>
+                                        {% endif %}
+
+                                        {% if query.1.field == "name" %}
+                                            <option selected="selected" value="name">名称</option>
+                                        {% else %}
+                                            <option value="name">名称</option>
+                                        {% endif %}
+
+                                        {% if query.1.field == "barcode" %}
+                                            <option selected="selected" value="barcode">条码</option>
+                                        {% else %}
+                                            <option value="barcode">条码</option>
+                                        {% endif %}
+
+                                    </select>&nbsp;&nbsp;&nbsp;
+                                    <select id="op" name="op">
+
+                                        {% if query.1.op == "eq" %}
+                                            <option selected="selected" value="eq">等于</option>
+                                        {% else %}
+                                            <option value="eq">等于</option>
+                                        {% endif %}
+
+                                        {% if query.1.op == "ne" %}
+                                            <option selected="selected" value="ne">不等于</option>
+                                        {% else %}
+                                            <option value="ne">不等于</option>
+                                        {% endif %}
+
+                                        {% if query.1.op == "lt" %}
+                                            <option selected="selected" value="lt">小于</option>
+                                        {% else %}
+                                            <option value="lt">小于</option>
+                                        {% endif %}
+
+                                        {% if query.0.op == "le" %}
+                                            <option selected="selected" value="le">小于等于</option>
+                                        {% else %}
+                                            <option value="le">小于等于</option>
+                                        {% endif %}
+
+                                        {% if query.1.op == "gt" %}
+                                            <option selected="selected" value="gt">大于</option>
+                                        {% else %}
+                                            <option value="gt">大于</option>
+                                        {% endif %}
+
+                                        {% if query.1.op == "ge" %}
+                                            <option selected="selected" value="ge">大于等于</option>
+                                        {% else %}
+                                            <option value="ge">大于等于</option>
+                                        {% endif %}
+
+                                        {% if query.0.op == "bw" %}
+                                            <option selected="selected" value="bw">开始于</option>
+                                        {% else %}
+                                            <option value="bw">开始于</option>
+                                        {% endif %}
+
+                                        {% if query.1.op == "bn" %}
+                                            <option selected="selected" value="bn">不开始于</option>
+                                        {% else %}
+                                            <option value="bn">不开始于</option>
+                                        {% endif %}
+                                        {% if query.1.op == "in" %}
+                                            <option selected="selected" value="in">属于</option>
+                                        {% else %}
+                                            <option value="in">属于</option>
+                                        {% endif %}
+                                        {% if query.1.op == "ni" %}
+                                            <option selected="selected" value="ni">不属于</option>
+                                        {% else %}
+                                            <option value="ni">不属于</option>
+                                        {% endif %}
+                                        {% if query.1.op == "ew" %}
+                                            <option selected="selected" value="ew">结束于</option>
+                                        {% else %}
+                                            <option value="ew">结束于</option>
+                                        {% endif %}
+                                        {% if query.1.op == "en" %}
+                                            <option selected="selected" value="en">不结束于</option>
+                                        {% else %}
+                                            <option value="en">不结束于</option>
+                                        {% endif %}
+                                        {% if query.1.op == "cn" %}
+                                            <option selected="selected" value="cn">包含</option>
+                                        {% else %}
+                                            <option value="cn">包含</option>
+                                        {% endif %}
+                                        {% if query.1.op == "cn" %}
+                                            <option selected="selected" value="nc">不包含</option>
+                                        {% else %}
+                                            <option value="nc">不包含</option>
+                                        {% endif %}
+
+                                    </select>&nbsp;&nbsp;&nbsp;
+                                    <input type="text" value="{{ query.1.data }}" id="data" name="data"/>&nbsp;&nbsp;&nbsp;
+                                </div>
+                                <div>
+                                    <select id="field" name="field">
+                                        {% if query.2.field == "id" %}
+                                            <option selected="selected" value="id">id</option>
+                                        {% else %}
+                                            <option value="id">id</option>
+                                        {% endif %}
+                                        {% if query.2.field == "nr" %}
+                                            <option selected="selected" value="nr">代码</option>
+                                        {% else %}
+                                            <option value="nr">代码</option>
+                                        {% endif %}
+
+                                        {% if query.2.field == "name" %}
+                                            <option selected="selected" value="name">名称</option>
+                                        {% else %}
+                                            <option value="name">名称</option>
+                                        {% endif %}
+
+                                        {% if query.2.field == "barcode" %}
+                                            <option selected="selected" value="barcode">条码</option>
+                                        {% else %}
+                                            <option value="barcode">条码</option>
+                                        {% endif %}
+
+                                    </select>&nbsp;&nbsp;&nbsp;
+                                    <select id="op" name="op">
+
+                                        {% if query.2.op == "eq" %}
+                                            <option selected="selected" value="eq">等于</option>
+                                        {% else %}
+                                            <option value="eq">等于</option>
+                                        {% endif %}
+
+                                        {% if query.2.op == "ne" %}
+                                            <option selected="selected" value="ne">不等于</option>
+                                        {% else %}
+                                            <option value="ne">不等于</option>
+                                        {% endif %}
+
+                                        {% if query.2.op == "lt" %}
+                                            <option selected="selected" value="lt">小于</option>
+                                        {% else %}
+                                            <option value="lt">小于</option>
+                                        {% endif %}
+
+                                        {% if query.2.op == "le" %}
+                                            <option selected="selected" value="le">小于等于</option>
+                                        {% else %}
+                                            <option value="le">小于等于</option>
+                                        {% endif %}
+
+                                        {% if query.2.op == "gt" %}
+                                            <option selected="selected" value="gt">大于</option>
+                                        {% else %}
+                                            <option value="gt">大于</option>
+                                        {% endif %}
+
+                                        {% if query.2.op == "ge" %}
+                                            <option selected="selected" value="ge">大于等于</option>
+                                        {% else %}
+                                            <option value="ge">大于等于</option>
+                                        {% endif %}
+
+                                        {% if query.2.op == "bw" %}
+                                            <option selected="selected" value="bw">开始于</option>
+                                        {% else %}
+                                            <option value="bw">开始于</option>
+                                        {% endif %}
+
+                                        {% if query.2.op == "bn" %}
+                                            <option selected="selected" value="bn">不开始于</option>
+                                        {% else %}
+                                            <option value="bn">不开始于</option>
+                                        {% endif %}
+                                        {% if query.2.op == "in" %}
+                                            <option selected="selected" value="in">属于</option>
+                                        {% else %}
+                                            <option value="in">属于</option>
+                                        {% endif %}
+                                        {% if query.2.op == "ni" %}
+                                            <option selected="selected" value="ni">不属于</option>
+                                        {% else %}
+                                            <option value="ni">不属于</option>
+                                        {% endif %}
+                                        {% if query.2.op == "ew" %}
+                                            <option selected="selected" value="ew">结束于</option>
+                                        {% else %}
+                                            <option value="ew">结束于</option>
+                                        {% endif %}
+                                        {% if query.2.op == "en" %}
+                                            <option selected="selected" value="en">不结束于</option>
+                                        {% else %}
+                                            <option value="en">不结束于</option>
+                                        {% endif %}
+                                        {% if query.2.op == "cn" %}
+                                            <option selected="selected" value="cn">包含</option>
+                                        {% else %}
+                                            <option value="cn">包含</option>
+                                        {% endif %}
+                                        {% if query.2.op == "cn" %}
+                                            <option selected="selected" value="nc">不包含</option>
+                                        {% else %}
+                                            <option value="nc">不包含</option>
+                                        {% endif %}
+
+                                    </select>&nbsp;&nbsp;&nbsp;
+                                    <input type="text" value="{{ query.2.data }}" id="data" name="data"/>&nbsp;&nbsp;&nbsp;
+                                </div>
                             </div>
-                            <div id="2">
-                              <select id="field"  name="field">
-                              <option selected="selected" value="id">id</option>
-                              <option value="nr">代码</option>
-                              <option value="name">名称</option>
-                              <option value="barcode">条码</option>
-                            </select>&nbsp;&nbsp;&nbsp;
+                        </div>
 
-                            <select id="op" name="op">
-                              <option selected="selected" value="eq">等于</option>
-                              <option value="ne">不等于</option>
-                              <option value="lt">小于</option>
-                              <option value="le">小于等于</option>
-                              <option value="gt">大于</option>
-                              <option value="ge">大于等于</option>
-                              <option value="bw">开始于</option>
-                              <option value="bn">不开始于</option>
-                              <option value="in">属于</option>
-                              <option value="ni">不属于</option>
-                              <option value="ew">结束于</option>
-                              <option value="en">不结束于</option>
-                              <option value="cn">包含</option>
-                              <option value="nc">不包含</option>
-                            </select>&nbsp;&nbsp;&nbsp;
-                            <input type="text" value="" id="data" name="data"/>&nbsp;&nbsp;&nbsp;
-                            </div>
-                            <div id="3">
-                              <select id="field"  name="field">
-                              <option selected="selected" value="id">id</option>
-                              <option value="nr">代码</option>
-                              <option value="name">名称</option>
-                              <option value="barcode">条码</option>
-                            </select>&nbsp;&nbsp;&nbsp;
+                        <div class="modal-footer">
+                            <button type="submit" class="btn btn-info" id="search">查询</button>
 
-                            <select id="op" name="op">
-                              <option selected="selected" value="eq">等于</option>
-                              <option value="ne">不等于</option>
-                              <option value="lt">小于</option>
-                              <option value="le">小于等于</option>
-                              <option value="gt">大于</option>
-                              <option value="ge">大于等于</option>
-                              <option value="bw">开始于</option>
-                              <option value="bn">不开始于</option>
-                              <option value="in">属于</option>
-                              <option value="ni">不属于</option>
-                              <option value="ew">结束于</option>
-                              <option value="en">不结束于</option>
-                              <option value="cn">包含</option>
-                              <option value="nc">不包含</option>
-                            </select>&nbsp;&nbsp;&nbsp;
-                            <input type="text" value="" id="data" name="data"/>&nbsp;&nbsp;&nbsp;
-                            </div>
-
-                            <br>
-                            </div>
-                    </div>
-
-                    <div class="modal-footer">
-                        <button type="submit" class="btn btn-info" id="search" onclick="Search()">查询</button>
-
-                        <button type="button" class="btn btn-default" data-dismiss="modal">取消</button>
-                    </div>
+                            <button type="button" class="btn btn-default" data-dismiss="modal">取消</button>
+                        </div>
                     </form>
                 </div>
             </div>
         </div>
 
-    <a>
-     <button data-toggle="modal" data-target="#myModal1" onclick="ExcelFile()">上传</button>
-    </a>&nbsp;&nbsp;&nbsp;
-            <div class="modal fade" id="myModal1"  tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+        <a>
+            <button data-toggle="modal" data-target="#myModal1" onclick="ExcelFile()">上传</button>
+        </a>&nbsp;&nbsp;&nbsp;
+        <div class="modal fade" id="myModal1" tabindex="-1" role="dialog" aria-labelledby="myModalLabel"
+             aria-hidden="true">
             <!--  定义模态框，过渡效果为淡入，id为myModal,tabindex=-1可以禁用使用tab切换，aria-labelledby用于引用模态框的标题，aria-hidden=true保持模态框在触发前窗口不可见  -->
             <div class="modal-dialog">
                 <!--  显示模态框对话框模型（若不写下一个div则没有颜色）  -->
@@ -145,13 +394,13 @@
                     <div class="modal-body">
                         <!--  模态框内容，我在此处添加一个表单 -->
                         <div class="form-horizontal box">
-{#                             <input type="file" id="btn_file" style="display:none">#}
-{#                            <button class="btn btn-info b_div">导入文件</button>#}
+                            {#                             <input type="file" id="btn_file" style="display:none">#}
+                            {#                            <button class="btn btn-info b_div">导入文件</button>#}
 
-                         <form action="/item/" method="post" enctype="multipart/form-data">
+                            <form action="/item/" method="post" enctype="multipart/form-data">
                                 <input type="file" name="fileUpload" class="file_div"/>
                                 <input type="submit" value="上传文件" class="btn btn-info b_div"/>
-                                </form>
+                            </form>
                         </div>
                     </div>
 
@@ -164,14 +413,20 @@
             </div>
         </div>
 
-    <a href="/item/?format=spreadsheet">
-    <button> 下载</button>&nbsp;&nbsp;&nbsp;
-    </a>
+        {% if query %}
+            <a onclick="Query_Url({{ query }})">
+            <button> 下载</button>&nbsp;&nbsp;&nbsp;
+            </a>
+        {% else %}
+            <a href="/item/?format=spreadsheet">
+                <button> 下载</button>&nbsp;&nbsp;&nbsp;
+            </a>
+        {% endif %}
     </div>
     <br>
     <br>
     <br>
-    <table >
+    <table>
         <tr>
             <th>代码</th>
             <th>名称</th>
@@ -204,15 +459,24 @@
     <br>
     <br>
     <br>
-    <a href="/item/?page=1"><button> 第一页 </button></a>
+    <a href="/item/?page=1">
+        <button> 第一页</button>
+    </a>
 
-    <a href="/item/?page={{ page| add:-1 }}"><button> 上一页 </button></a>
+    <a onclick="PrePage({{ page }},{{ total_pages }})">
+        <button> 上一页</button>
+    </a>
 
     <input id="curPage" type="text" size="5" value="{{ page }}">
 
-    <a href="/item/?page={{ page| add:1 }}"><button> 下一页 </button></a>
+{#    <a href="/item/?page={{ page| add:1 }}">#}
+    <a onclick="NextPage({{ page }},{{ total_pages }})">
+        <button> 下一页</button>
+    </a>
 
-    <a href="/item/?page={{ total_pages }}"><button> 最后一页 </button></a>
+    <a href="/item/?page={{ total_pages }}">
+        <button> 最后一页</button>
+    </a>
 
     &nbsp;&nbsp;&nbsp;共{{ total_pages }}页
     <br>
