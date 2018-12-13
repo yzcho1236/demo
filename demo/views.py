@@ -8,7 +8,7 @@ import pickle
 import functools
 import urllib
 from io import BytesIO
-
+from django.http import QueryDict
 from django.contrib.auth import authenticate, update_session_auth_hash
 from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
@@ -30,8 +30,6 @@ from demo.form import UserForm, ItemForm, ItemAddForm, RoleForm, RoleAddForm, Pe
 from demo.util import PermRequired, ItemRequired, UserRequired, RoleRequired, UserRoleRequired, RolePermRequired, \
     Pagination, _filter_map_jqgrid_django, perm_required
 from input.models import Role, User, UserRole, RolePermission, Item, Perm
-
-from django.utils.functional import SimpleLazyObject
 
 
 class WelcomePage(View):
@@ -57,6 +55,17 @@ class Login(View):
             user = authenticate(request, username=username, password=password)
             if user:
                 auth.login(request, user)
+                # 将用户权限写入session中
+                roles = UserRole.objects.filter(user=request.user.id).values_list('role_id')
+                perms = list(
+                    RolePermission.objects.filter(role_id__in=roles).values_list("permission__codename", flat=True))
+                all_perms = list(Perm.objects.all().values_list("codename", flat=True))
+                if request.user.is_superuser and request.user.is_active:
+                    request.session["perm"] = all_perms
+                else:
+                    request.session["perm"] = perms
+
+                # 判断是否是重定向
                 if next_url:
                     return HttpResponseRedirect(next_url)
                 return HttpResponseRedirect("/index/")
@@ -134,6 +143,15 @@ class ItemView(View):
     @method_decorator(perm_required(("view_item",)))
     def get(self, request, *args, **kwargs):
         fmt = request.GET.get('format', None)
+        print("ok")
+        print(request.session.get("query_data", None))
+        print("ok")
+        print("ok")
+        print(request.session.get("query_data", None))
+        print("this is a session")
+        print(request.session.get("perm", None))
+        print("this is a request")
+        print(request.perm)
         if fmt is None:
             data = self._get_data(request)
             return TemplateResponse(request, "item.html", data)

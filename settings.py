@@ -49,7 +49,6 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    # "demo.middleware.MultiDBMiddleware"  # 获取当前用户的所有权限
     "input.middleware.PermMiddleware"
 ]
 ROOT_URLCONF = 'demo.urls'
