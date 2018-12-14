@@ -22,13 +22,15 @@ from django.utils.encoding import smart_str, force_str
 from django.views import View
 from django.contrib import auth
 from django.template.response import TemplateResponse
+from django.views.decorators.csrf import csrf_protect
+from functools import reduce
 from openpyxl import Workbook, load_workbook
 from openpyxl.cell import WriteOnlyCell
 
 from demo.form import UserForm, ItemForm, ItemAddForm, RoleForm, RoleAddForm, PermissionAddForm, \
     RegisterForm, UserEditForm
 from demo.util import PermRequired, ItemRequired, UserRequired, RoleRequired, UserRoleRequired, RolePermRequired, \
-    Pagination, _filter_map_jqgrid_django, perm_required
+    Pagination, _filter_map_jqgrid_django, perm_required, get_query_url
 from input.models import Role, User, UserRole, RolePermission, Item, Perm
 
 
@@ -132,6 +134,7 @@ class Register(View):
 
 def index(request):
     perm = request.perm
+    # query = request.session.get("query_data", None) if request.session.get("query_data", None) else []
     return TemplateResponse(request, "index.html", {"perm": perm})
 
 
@@ -143,15 +146,6 @@ class ItemView(View):
     @method_decorator(perm_required(("view_item",)))
     def get(self, request, *args, **kwargs):
         fmt = request.GET.get('format', None)
-        print("ok")
-        print(request.session.get("query_data", None))
-        print("ok")
-        print("ok")
-        print(request.session.get("query_data", None))
-        print("this is a session")
-        print(request.session.get("perm", None))
-        print("this is a request")
-        print(request.perm)
         if fmt is None:
             data = self._get_data(request)
             return TemplateResponse(request, "item.html", data)
@@ -337,19 +331,14 @@ class ItemView(View):
         # 获取到的页面数
         page = request.GET.get("page", 1)
         query_data = dict(request.GET.lists())
+        fs = []
         if "data" in query_data and "op" in query_data and "data" in query_data:
-            if request.session.get("query_data", None):
-                del request.session["query_data"]
             data_query = list(filter(lambda x: x, query_data["data"]))
-            data = query_data["data"]
-            len_data = len(data)
             len_data_query = len(data_query)
             fields = query_data["field"]
             ops = query_data["op"]
             # 查询的有效列表
-            fs = []
             # 查询的所有列表
-            query_list = []
             for i in range(0, len_data_query):
                 adict = {}
                 if fields[i] in filter_fields:
@@ -359,15 +348,7 @@ class ItemView(View):
                     fs.append(adict)
                 else:
                     continue
-            for i in range(0, len_data):
-                adict = {}
-                if fields[i] in filter_fields:
-                    adict["field"] = fields[i]
-                    adict["op"] = ops[i]
-                    adict["data"] = data[i]
-                    query_list.append(adict)
-                else:
-                    continue
+
             for rule in fs:
                 op, field, data = rule['op'], rule['field'], rule['data']
                 filter_fmt, exclude = _filter_map_jqgrid_django[op]
@@ -382,7 +363,7 @@ class ItemView(View):
                     q_filters.append(~Q(**filter_kwargs))
                 else:
                     q_filters.append(Q(**filter_kwargs))
-            request.session["query_data"] = query_list
+
         if q_filters:
             item_query = Item.objects.filter(functools.reduce(operator.iand, q_filters)).order_by("id")
         else:
@@ -390,7 +371,6 @@ class ItemView(View):
         count = float(item_query.count())
         pagesize = request.pagesizes if in_page else count
         pagination = Pagination(item_query, pagesize, page)
-        query = request.session.get("query_data", None) if request.session.get("query_data", None) else []
         content = []
         for i in pagination.get_objs():
             data = {
@@ -400,9 +380,20 @@ class ItemView(View):
                 "barcode": i.barcode,
             }
             content.append(data)
-        all_data = {"page": page, "s": pagination.count, "total_pages": pagination.total_pages,
+
+        # 根据查询的列表拼接URL
+        array = []
+        for i in fs:
+            for k, v in i.items():
+                b = "&" + str(k) + "=" + str(v)
+                array.append(b)
+        query_url = "".join(array)
+
+        all_data = {"page": pagination.page, "s": pagination.count, "total_pages": pagination.total_pages,
                     "data": content,
-                    "perm": request.perm, "query": query, "error": ""}
+                    "pg": pagination,
+                    "perm": request.perm, "query": fs,
+                    'query_url': query_url, "error": ""}
 
         return all_data
 

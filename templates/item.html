@@ -413,15 +413,10 @@
             </div>
         </div>
 
-        {% if query %}
-            <a onclick="Query_Url({{ query }})">
-            <button> 下载</button>&nbsp;&nbsp;&nbsp;
-            </a>
-        {% else %}
-            <a href="/item/?format=spreadsheet">
+
+            <a href="/item/?format=spreadsheet{{ query_url }}">
                 <button> 下载</button>&nbsp;&nbsp;&nbsp;
             </a>
-        {% endif %}
     </div>
     <br>
     <br>
@@ -458,29 +453,32 @@
     </table>
     <br>
     <br>
+    {{ query }}
+
+
     <br>
-    <a href="/item/?page=1">
+    <a href="/item/?page=1{{ query_url }}">
         <button> 第一页</button>
     </a>
 
-    <a onclick="PrePage({{ page }},{{ total_pages }})">
-        <button> 上一页</button>
-    </a>
 
-    <input id="curPage" type="text" size="5" value="{{ page }}">
-
-{#    <a href="/item/?page={{ page| add:1 }}">#}
-    <a onclick="NextPage({{ page }},{{ total_pages }})">
+ <a href="/item/?page={{ pg.prev }}{{ query_url }}">
+           <button> 上一页</button>
+        </a>
+    <input id="curPage" type="text" size="5" value="{{ pg.page }}">
+    <a href="/item/?page={{pg.next }}{{ query_url }}">
         <button> 下一页</button>
     </a>
 
-    <a href="/item/?page={{ total_pages }}">
+    <a href="/item/?page={{ pg.total_pages }}{{ query_url }}">
         <button> 最后一页</button>
     </a>
 
     &nbsp;&nbsp;&nbsp;共{{ total_pages }}页
     <br>
     {{ error }}
+
+
 
 {% endblock %}
 

@@ -18,4 +18,4 @@ class PermMiddleware(object):
 
     def process_request(self, request):
         request.pagesizes = settings.DEFAULT_PAGESIZE
-        request.perm = request.session["perm"]
+        request.perm = request.session.get("perm", None)

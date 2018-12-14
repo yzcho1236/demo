@@ -97,10 +97,24 @@ class Pagination(object):
         if self.page < 1:
             self.page = 1
 
+        self.prev = 1 if self.page == 1 else self.page - 1
+        self.next = self.page if self.page == self.total_pages else self.page + 1
+
     def get_objs(self):
         cnt = (self.page - 1) * self.pagesize
         objs = self.queryset[cnt: cnt + self.pagesize]
         return objs
+
+
+def get_query_url(query):
+    """根据查询的列表拼接URL"""
+    array = []
+    for i in query:
+        for k, v in i.items():
+            b = "&" + str(k) + "=" + str(v)
+            array.append(b)
+    query_url = "".join(array)
+    return query_url
 
 
 _filter_map_jqgrid_django = {
