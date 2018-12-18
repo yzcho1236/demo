@@ -21,14 +21,17 @@
         {% if "change_user" in perm %}
             <th>
 
-            <a href="/user/edit/?user_id={{ i.id }}">
-            <button> 修改 </button>
+            <a href="/user/edit/info/?id={{ i.id }}">
+            <button> 修改用户 </button>
+            </a>
+            <a href="/user/edit/password/?id={{ i.id }}">
+            <button> 修改密码 </button>
             </a>
             </th>
             {% endif %}
             {% if "delete_user" in perm %}
             <th>
-                <a href="/user/delete/?user_id={{ i.id }}">
+                <a href="/user/delete/?id={{ i.id }}">
                 <button> 删除 </button>
                 </a>
             </th>

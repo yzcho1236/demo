@@ -28,7 +28,8 @@ urlpatterns = [
     url(r'^item/add/$', views.ItemAdd.as_view(), name='item_add'),
 
     url(r'^user/$', views.UserView.as_view(), name='user'),
-    url(r'^user/edit/$', views.UserEdit.as_view(), name='user_edit'),
+    url(r'^user/edit/info/$', views.UserEditInfo.as_view(), name='user_edit_info'),
+    url(r'^user/edit/password/$', views.UserEditPwd.as_view(), name='user_edit_password'),
     url(r'^user/delete/$', views.UserDelete.as_view(), name='user_delete'),
 
     url(r'^role/$', views.RoleView.as_view(), name='role'),

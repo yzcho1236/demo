@@ -3,15 +3,13 @@
     用户编辑
 {% endblock %}
     {% block content %}
- <form action="/user/edit/"  method="post">
+ <form action="/user/edit/info/"  method="post">
   <label for="id">id:</label>
-  <input type="text" name="id" value="{{ data.id }}" id="id" readonly>
+  <input type="text" name="id" value="{{ id }}" id="id" readonly>
   <label for="username">用户名:</label>
-  <input type="text" name="username" value="{{ data.username }}" id="username">
-  <label for="password">密码:</label>
-  <input type="text" name="password" value="{{ data.password }}" id="password">
+  <input type="text" name="username" value="{{ username }}" id="username">
   <label for="is_superuser">是否是管理员:</label>
-  <input type="text" name="is_superuser" value="{{ data.is_superuser }}" id="is_superuser">
+  <input type="text" name="is_superuser" value="{{ is_superuser }}" id="is_superuser">
     <br>
     <span class="con">{{ error }}</span>
      <br>

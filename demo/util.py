@@ -1,86 +1,40 @@
 import math
 from functools import wraps
+from urllib.parse import urlunparse, urlparse
 
 import six
-from django.contrib.auth import REDIRECT_FIELD_NAME
 from django.contrib.auth.mixins import PermissionRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.http import HttpResponseRedirect
-from django.shortcuts import redirect
-from django.utils.decorators import available_attrs
 
 
-def perm_required(perm, login_url=None, raise_exception=False):
+def perm_required(perm, raise_exception=False):
     def check_perms(user):
         if isinstance(perm, six.string_types):
             perms = (perm,)
         else:
             perms = perm
-        # First check if the user has the permission (even anon users)
         if user.has_perms(perms):
             return True
-        # In case the 403 handler should be called raise the exception
         if raise_exception:
             return PermissionDenied
-        # As the last resort, show the login form
         return False
 
-    return passes_test(check_perms, login_url=login_url)
+    return passes_test(check_perms)
 
 
-def passes_test(test_func, login_url=None, redirect_field_name=REDIRECT_FIELD_NAME):
+def passes_test(test_func):
     def decorator(view_func):
-        @wraps(view_func, assigned=available_attrs(view_func))
+        # 获取当前请求的对象
+        @wraps(view_func)
         def _wrapped_view(request, *args, **kwargs):
             if test_func(request.user):
                 return view_func(request, *args, **kwargs)
-            return redirect("/item/?msg=用户没有权限")
+            return HttpResponseRedirect("/index/?msg=用户没有访问的权限")
 
         return _wrapped_view
 
     return decorator
-
-
-class PermRequired(PermissionRequiredMixin):
-    def handle_no_permission(self):
-        if self.raise_exception or self.request.user.is_authenticated:
-            return HttpResponseRedirect("/index/?msg=用户没有访问的权限")
-
-
-class ItemRequired(PermissionRequiredMixin):
-    def handle_no_permission(self):
-        if self.raise_exception or self.request.user.is_authenticated:
-            return HttpResponseRedirect("/item/?msg=用户没有访问的权限")
-
-
-class UserRequired(PermissionRequiredMixin):
-    def handle_no_permission(self):
-        if self.raise_exception or self.request.user.is_authenticated:
-            return HttpResponseRedirect("/user/?msg=用户没有访问的权限")
-
-
-class RoleRequired(PermissionRequiredMixin):
-    def handle_no_permission(self):
-        if self.raise_exception or self.request.user.is_authenticated:
-            return HttpResponseRedirect("/role/?msg=用户没有访问的权限")
-
-
-class PermissionRequired(PermissionRequiredMixin):
-    def handle_no_permission(self):
-        if self.raise_exception or self.request.user.is_authenticated:
-            return HttpResponseRedirect("/perm/?msg=用户没有访问的权限")
-
-
-class UserRoleRequired(PermissionRequiredMixin):
-    def handle_no_permission(self):
-        if self.raise_exception or self.request.user.is_authenticated:
-            return HttpResponseRedirect("/user_role/?msg=用户没有访问的权限")
-
-
-class RolePermRequired(PermissionRequiredMixin):
-    def handle_no_permission(self):
-        if self.raise_exception or self.request.user.is_authenticated:
-            return HttpResponseRedirect("/role_permission/?msg=用户没有访问的权限")
 
 
 class Pagination(object):
@@ -106,17 +60,6 @@ class Pagination(object):
         return objs
 
 
-def get_query_url(query):
-    """根据查询的列表拼接URL"""
-    array = []
-    for i in query:
-        for k, v in i.items():
-            b = "&" + str(k) + "=" + str(v)
-            array.append(b)
-    query_url = "".join(array)
-    return query_url
-
-
 _filter_map_jqgrid_django = {
     'ne': ('%(field)s__iexact', True),
     'bn': ('%(field)s__istartswith', True),
@@ -133,3 +76,6 @@ _filter_map_jqgrid_django = {
     'ew': ('%(field)s__iendswith', False),
     'cn': ('%(field)s__icontains', False)
 }
+select_op = {'eq': '等于', 'ne': '不等于', 'lt': '小于', 'le': '小于等于', 'gt': '大于等于', 'bw': '开始于', 'bn': '不开始于', 'in': '属于',
+             'ni': '不属于', 'cn': '包含', 'nc': '不包含'}
+

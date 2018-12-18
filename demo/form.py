@@ -25,10 +25,15 @@ class RegisterForm(forms.Form):
     password2 = forms.CharField(max_length=32)
 
 
+class UserPwdForm(forms.Form):
+    username = forms.CharField()
+    password1 = forms.CharField(max_length=32)
+    password2 = forms.CharField(max_length=32)
+
+
 class UserEditForm(forms.Form):
     id = forms.IntegerField()
     username = forms.CharField()
-    password = forms.CharField()
     is_superuser = forms.CharField()
 
 
@@ -40,7 +45,3 @@ class RoleForm(forms.Form):
 class RoleAddForm(forms.Form):
     name = forms.CharField()
 
-
-class PermissionAddForm(forms.Form):
-    codename = forms.CharField()
-    name = forms.CharField()

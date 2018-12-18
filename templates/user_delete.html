@@ -4,13 +4,13 @@
 {% endblock %}
 
 {% block content %}
- <form action="/user/delete/?user_id={{ data.id }}"  method="post">
+ <form action="/user/delete/?user_id={{ id }}"  method="post">
   <label for="id">id:</label>
-  <input type="text" name="id" value="{{ data.id }}" id="id" readonly>
+  <input type="text" name="id" value="{{ id }}" id="id" readonly>
   <label for="username">username:</label>
-  <input type="text" name="username" value="{{ data.username }}" id="username" readonly>
+  <input type="text" name="username" value="{{ username }}" id="username" readonly>
   <label for="is_superuser">is_superuser:</label>
-  <input type="text" name="is_superuser" value="{{ data.is_superuser }}" id="is_superuser" readonly>
+  <input type="text" name="is_superuser" value="{{ is_superuser }}" id="is_superuser" readonly>
     <br>
     <span class="con">{{ error }}</span>
      <br>
