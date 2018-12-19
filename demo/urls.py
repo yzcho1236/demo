@@ -44,5 +44,7 @@ urlpatterns = [
 
     url(r'^role_permission/$', views.RolePermissionView.as_view(), name='role_permission'),
     url(r'^role_permission/edit/$', views.RolePermissionEdit.as_view(), name='role_permission_edit'),
+
+    url(r'^item/detail/$', views.ItemDetail.as_view(), name='item_detail'),
 ]
 

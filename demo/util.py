@@ -7,6 +7,8 @@ from django.contrib.auth.mixins import PermissionRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.http import HttpResponseRedirect
 
+from input.models import Item
+
 
 def perm_required(perm, raise_exception=False):
     def check_perms(user):
@@ -60,6 +62,16 @@ class Pagination(object):
         return objs
 
 
+class GetItemParent(object):
+    @staticmethod
+    def get_parent():
+        items = Item.objects.all().order_by("id").values("id", "nr")
+        item_all = {}
+        for i in items:
+            item_all[i["id"]] = i["nr"]
+        return item_all
+
+
 _filter_map_jqgrid_django = {
     'ne': ('%(field)s__iexact', True),
     'bn': ('%(field)s__istartswith', True),
@@ -78,4 +90,3 @@ _filter_map_jqgrid_django = {
 }
 select_op = {'eq': '等于', 'ne': '不等于', 'lt': '小于', 'le': '小于等于', 'gt': '大于等于', 'bw': '开始于', 'bn': '不开始于', 'in': '属于',
              'ni': '不属于', 'cn': '包含', 'nc': '不包含'}
-

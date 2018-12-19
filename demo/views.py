@@ -18,7 +18,7 @@ from openpyxl import Workbook, load_workbook
 from openpyxl.cell import WriteOnlyCell
 from demo.form import UserForm, ItemForm, ItemAddForm, RoleForm, RoleAddForm, \
     UserPwdForm, UserEditForm, RegisterForm
-from demo.util import Pagination, _filter_map_jqgrid_django, perm_required, select_op
+from demo.util import Pagination, _filter_map_jqgrid_django, perm_required, select_op, GetItemParent
 from input.models import Role, User, UserRole, RolePermission, Item, Perm
 
 
@@ -128,8 +128,8 @@ def index(request):
 
 class ItemView(View):
     """查看物料列表"""
-    file_headers = ('id', '代码', '名称', '条码')
-    select_field = {'id': 'id', 'nr': '代码', 'name': '名称', 'barcode': '条码'}
+    file_headers = ('id', '代码', '名称', '条码', "父类")
+    select_field = {'id': 'id', 'nr': '代码', 'name': '名称', 'barcode': '条码', 'parent': '父类'}
 
     @method_decorator(login_required)
     @method_decorator(perm_required(("view_item",)))
@@ -367,6 +367,7 @@ class ItemView(View):
                 "nr": i.nr,
                 "name": i.name,
                 "barcode": i.barcode,
+                "parent": i.parent,
             }
             content.append(data)
 
@@ -391,6 +392,7 @@ class ItemEdit(LoginRequiredMixin, View):
     permission_required = "change_item"
 
     def get(self, request, *args, **kwargs):
+
         item_id = request.GET.get('item_id', None)
         try:
             item = Item.objects.get(id=item_id)
@@ -399,10 +401,13 @@ class ItemEdit(LoginRequiredMixin, View):
                 "nr": item.nr,
                 "name": item.name,
                 "barcode": item.barcode,
+                "parent": item.parent,
+                "item_all": GetItemParent.get_parent(),
+                "perm": request.perm
             }
         except:
             return HttpResponseRedirect("/item/?msg=数据查询失败")
-        return TemplateResponse(request, "item_edit.html", {"data": data, "perm": request.perm})
+        return TemplateResponse(request, "item_edit.html", data)
 
     def post(self, request, *args, **kwargs):
         form = ItemForm(request.POST)
@@ -411,11 +416,15 @@ class ItemEdit(LoginRequiredMixin, View):
         nr = request.POST['nr']
         name = request.POST['name']
         barcode = request.POST['barcode']
+        parent = int(request.POST['parent'])
         data = {
             "id": item_id,
             "nr": nr,
             "name": name,
             "barcode": barcode,
+            "parent": parent,
+            "item_all": GetItemParent.get_parent(),
+            "perm": request.perm
 
         }
         if form.is_valid():
@@ -424,13 +433,16 @@ class ItemEdit(LoginRequiredMixin, View):
                 # 创建保存点
                 try:
                     item = Item.objects.get(id=item_id)
+                    parent_item = Item.objects.get(id=parent)
                     item.nr = nr
                     item.name = name
                     item.barcode = barcode
+                    item.parent = parent_item
                     item.save()
-                except:
-                    return TemplateResponse(request, "item_edit.html",
-                                            {"data": data, "perm": request.perm, "error": "编辑失败"})
+                except Exception as e:
+                    print(e)
+                    data["error"] = "编辑失效"
+                    return TemplateResponse(request, "item_edit.html", data)
                 else:
                     return HttpResponseRedirect("/item/")
         else:
@@ -449,24 +461,27 @@ class ItemDelete(LoginRequiredMixin, View):
                 "nr": item.nr,
                 "name": item.name,
                 "barcode": item.barcode,
+                "parent": item.parent,
                 "perm": request.perm
             }
         except Exception as e:
             traceback.print_exc()
             return HttpResponseRedirect("/item/?msg=数据查询失败")
 
-        return TemplateResponse(request, "item_delete.html", {"data": data})
+        return TemplateResponse(request, "item_delete.html", data)
 
     def post(self, request, *args, **kwargs):
         item_id = request.POST['id']
         nr = request.POST['nr']
         name = request.POST['name']
         barcode = request.POST['barcode']
+        parent = request.POST['parent']
         data = {
             "id": item_id,
             "nr": nr,
             "name": name,
             "barcode": barcode,
+            "parent": parent,
         }
 
         with transaction.atomic(savepoint=False):
@@ -475,7 +490,8 @@ class ItemDelete(LoginRequiredMixin, View):
                 item = Item.objects.get(id=item_id)
                 item.delete()
             except:
-                return TemplateResponse(request, "item_delete.html", {"data": data, "error": "编辑失败"})
+                data["error"] = "删除失败"
+                return TemplateResponse(request, "item_delete.html", data)
 
             else:
                 return HttpResponseRedirect('/item/')
@@ -486,7 +502,8 @@ class ItemAdd(LoginRequiredMixin, View):
 
     def get(self, request, *args, **kwargs):
 
-        return TemplateResponse(request, "item_add.html", {"perm": request.perm})
+        return TemplateResponse(request, "item_add.html",
+                                {"item_all": GetItemParent.get_parent(), "perm": request.perm})
 
     def post(self, request, *args, **kwargs):
         form = ItemAddForm(request.POST)
@@ -494,22 +511,29 @@ class ItemAdd(LoginRequiredMixin, View):
         nr = request.POST['nr']
         name = request.POST['name']
         barcode = request.POST['barcode']
+        parent = request.POST['parent']
         data = {
             "nr": nr,
             "name": name,
-            "barcode": barcode
+            "barcode": barcode,
+            "parent": parent,
+            "item_all": GetItemParent.get_parent()
         }
         if form.is_valid():
 
             with transaction.atomic(savepoint=False):
                 try:
-                    Item.objects.create(nr=nr, name=name, barcode=barcode)
-                except:
+                    if parent:
+                        Item.objects.create(nr=nr, name=name, barcode=barcode, parent_id=parent)
+                    else:
+                        Item.objects.create(nr=nr, name=name, barcode=barcode)
+                except Exception as e:
+                    print(e)
                     return TemplateResponse(request, "item_add.html", {"data": data, "error": "添加失败，物料代码已存在"})
                 else:
                     return HttpResponseRedirect("/item/")
         else:
-            return TemplateResponse(request, "item_edit.html", {"data": data, "error": "表单错误"})
+            return TemplateResponse(request, "item_add.html", {"data": data, "error": "表单错误"})
 
 
 class UserView(LoginRequiredMixin, View):
@@ -639,8 +663,6 @@ class UserEditPwd(LoginRequiredMixin, View):
                     user = User.objects.get(id=id)
                     user.set_password(password1)
                     user.save()
-                    # 用户更改密码后更新用户session设置，更改用户密码后不进行自动登出
-                    # update_session_auth_hash(request, user)
                 except:
                     data["error"] = "用户编辑失效"
                     return TemplateResponse(request, "user_edit_password.html", data)
@@ -1006,7 +1028,6 @@ class RolePermissionView(LoginRequiredMixin, View):
 
 class RolePermissionEdit(LoginRequiredMixin, View):
     """角色权限"""
-    permission_required = "change_role_permission"
 
     def get(self, request, *args, **kwargs):
         role_id = request.GET.get("role_id", None)
@@ -1053,3 +1074,12 @@ class RolePermissionEdit(LoginRequiredMixin, View):
             except:
                 return HttpResponseRedirect("/role_permission/edit/?msg=修改角色权限信息失败")
             return HttpResponseRedirect("/role_permission/")
+
+
+class ItemDetail(View):
+    def get(self, request, *args, **kwargs):
+        Item.rebuild_item()
+        # parent_items = Item.objects.filter(parent=None).order_by("id")
+        # for i in parent_items:
+        #     child_item = Item.objects.filter(parent__id=i.id)
+        return HttpResponse("ok")

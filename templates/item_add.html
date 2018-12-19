@@ -11,6 +11,17 @@
   <input type="text" name="name" value="{{ data.name }}" id="name">
   <label for="barcode">barcode:</label>
   <input type="text" name="barcode" value="{{ data.barcode }}" id="barcode">
+ <label for="parent">parent:</label>
+  <select name="parent" id="parent">
+  <option value=""> ----- </option>
+    {% for k,v in item_all.items %}
+        {% if parent == k %}
+        <option selected="selected" value="{{ k }}">{{ v }}</option>
+        {% endif %}
+        <option value="{{ k }}">{{ v }}</option>
+    {% endfor %}
+    </select>&nbsp;&nbsp;&nbsp;
+
     <br>
     <span class="con">{{ error }}</span>
      <br>
@@ -19,6 +30,7 @@
     <a href="/item/">
     <button> 返回 </button>
     </a>
+
 {% endblock %}
 
 

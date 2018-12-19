@@ -12,6 +12,7 @@ class ItemAddForm(forms.Form):
     nr = forms.CharField()
     name = forms.CharField()
     barcode = forms.CharField()
+    parent = forms.CharField(required=False)
 
 
 class UserForm(forms.Form):

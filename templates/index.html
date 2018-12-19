@@ -49,11 +49,10 @@
         <li><a href="/item/">物料</a></li>
         <br>
 {#    {% endif %}#}
+         <li><a href="/item/detail/">物料清单</a></li><br>
 
-    {% if "view_user" in perm %}
       <li><a href="/user/">用户管理</a></li>
     <br>
-    {% endif %}
     {% if "view_role" in perm %}
         <li><a href="/role/">角色管理</a></li>
     <br>

@@ -5,17 +5,20 @@
  {% block content %}
  <form action="/item/delete/" method="post">
   <label for="id">id:</label>
-  <input type="text" name="id" value="{{ data.id }}" id="id" readonly>
+  <input type="text" name="id" value="{{ id }}" id="id" readonly>
   <label for="nr">nr:</label>
-  <input type="text" name="nr" value="{{ data.nr }}" id="password" readonly>
+  <input type="text" name="nr" value="{{ nr }}" id="password" readonly>
   <label for="name">name:</label>
-  <input type="text" name="name" value="{{ data.name }}" id="name" readonly>
+  <input type="text" name="name" value="{{ name }}" id="name" readonly>
   <label for="barcode">barcode:</label>
-  <input type="text" name="barcode" value="{{ data.barcode }}" id="barcode" readonly>
+  <input type="text" name="barcode" value="{{ barcode }}" id="barcode" readonly>
+  <label for="parent">parent:</label>
+  <input type="text" name="parent" value="{{ parent }}" id="parent">
+
     <br>
     <span class="con">{{ error }}</span>
      <br>
-    <input type="button" value="提交" onclick="Edit()"/>
+    <input type="submit" value="提交"/>
  </form>
     <a href="/item/">
     <button> 返回 </button>
