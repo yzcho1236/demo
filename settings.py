@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     'my_app',
     'demo',
     "input",
+    "mptt",
 ]
 
 MIDDLEWARE = [
@@ -65,6 +66,12 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
             ],
+            #
+            # 'libraries': {
+            #     'mptt_tags': 'app.templatetags.my_templatetag',
+            #
+            # }
+
         },
     },
 ]

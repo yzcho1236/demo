@@ -1,16 +1,15 @@
-import operator
 import traceback
-import functools
 import urllib
 from io import BytesIO
 from django.contrib.auth import authenticate, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
+import json
 from django.db import transaction
-from django.db.models import Q, AutoField, NOT_PROVIDED
+from django.db.models import AutoField, NOT_PROVIDED
 from django.http import HttpResponse, HttpResponseRedirect
 from django.utils.decorators import method_decorator
-from django.utils.encoding import smart_str, force_str
+from django.utils.encoding import force_str
 from django.views import View
 from django.contrib import auth
 from django.template.response import TemplateResponse
@@ -18,7 +17,7 @@ from openpyxl import Workbook, load_workbook
 from openpyxl.cell import WriteOnlyCell
 from demo.form import UserForm, ItemForm, ItemAddForm, RoleForm, RoleAddForm, \
     UserPwdForm, UserEditForm, RegisterForm
-from demo.util import Pagination, _filter_map_jqgrid_django, perm_required, select_op, GetItemParent
+from demo.util import Pagination, perm_required, select_op, GetItemParent, GetQueryData
 from input.models import Role, User, UserRole, RolePermission, Item, Perm
 
 
@@ -313,50 +312,14 @@ class ItemView(View):
             return TemplateResponse(request, "item.html", data)
 
     def _get_data(self, request, in_page=True, *args, **kwargs):
-        # 查询的条件
-        q_filters = []
         # 查询的字段
         filter_fields = ("id", "nr", "name", "barcode")
         # 获取到的页面数
         page = request.GET.get("page", 1)
         query_data = dict(request.GET.lists())
-        fs = []
-        if "data" in query_data and "op" in query_data and "data" in query_data:
-            data_query = list(filter(lambda x: x, query_data["data"]))
-            len_data_query = len(data_query)
-            fields = query_data["field"]
-            ops = query_data["op"]
-            # 查询的有效列表
-            # 查询的所有列表
-            for i in range(0, len_data_query):
-                adict = {}
-                if fields[i] in filter_fields:
-                    adict["field"] = fields[i]
-                    adict["op"] = ops[i]
-                    adict["data"] = data_query[i]
-                    fs.append(adict)
-                else:
-                    continue
-
-            for rule in fs:
-                op, field, data = rule['op'], rule['field'], rule['data']
-                filter_fmt, exclude = _filter_map_jqgrid_django[op]
-                filter_str = smart_str(filter_fmt % {'field': field})
-
-                if filter_fmt.endswith('__in'):
-                    filter_kwargs = {filter_str: data.split(',')}
-                else:
-                    filter_kwargs = {filter_str: smart_str(data)}
-
-                if exclude:
-                    q_filters.append(~Q(**filter_kwargs))
-                else:
-                    q_filters.append(Q(**filter_kwargs))
-
-        if q_filters:
-            item_query = Item.objects.filter(functools.reduce(operator.iand, q_filters)).order_by("id")
-        else:
-            item_query = Item.objects.all().order_by("id")
+        item_query = GetQueryData.get_data(Item, query_data, filter_fields)[0]
+        fs = GetQueryData.get_data(Item, query_data, filter_fields)[1]
+        query_url = GetQueryData.get_data(Item, query_data, filter_fields)[2]
         count = float(item_query.count())
         pagesize = request.pagesizes if in_page else count
         pagination = Pagination(item_query, pagesize, page)
@@ -370,16 +333,7 @@ class ItemView(View):
                 "parent": i.parent,
             }
             content.append(data)
-
-        # 根据查询的列表拼接URL
-        array = []
-        for i in fs:
-            for k, v in i.items():
-                b = "&" + str(k) + "=" + str(v)
-                array.append(b)
-        query_url = "".join(array)
-
-        all_data = {"page": pagination.page, "s": pagination.count, "total_pages": pagination.total_pages,
+        all_data = {
                     "data": content, "pg": pagination,
                     "perm": request.perm, "query": fs,
                     'query_url': query_url, "select_field": self.select_field,
@@ -394,6 +348,7 @@ class ItemEdit(LoginRequiredMixin, View):
     def get(self, request, *args, **kwargs):
 
         item_id = request.GET.get('item_id', None)
+
         try:
             item = Item.objects.get(id=item_id)
             data = {
@@ -403,6 +358,10 @@ class ItemEdit(LoginRequiredMixin, View):
                 "barcode": item.barcode,
                 "parent": item.parent,
                 "item_all": GetItemParent.get_parent(),
+                "effective_start": item.effective_start,
+                "effective_end": item.effective_end,
+                "unit": item.unit,
+                "qty": item.qty,
                 "perm": request.perm
             }
         except:
@@ -416,7 +375,14 @@ class ItemEdit(LoginRequiredMixin, View):
         nr = request.POST['nr']
         name = request.POST['name']
         barcode = request.POST['barcode']
-        parent = int(request.POST['parent'])
+        if request.POST.get("parent", None):
+            parent = int(request.POST['parent'])
+        else:
+            parent = ""
+        effective_start = request.POST['effective_start']
+        effective_end = request.POST['effective_end']
+        unit = request.POST['unit']
+        qty = request.POST['qty']
         data = {
             "id": item_id,
             "nr": nr,
@@ -424,8 +390,11 @@ class ItemEdit(LoginRequiredMixin, View):
             "barcode": barcode,
             "parent": parent,
             "item_all": GetItemParent.get_parent(),
+            "effective_start": effective_start,
+            "effective_end": effective_end,
+            "unit": unit,
+            "qty": qty,
             "perm": request.perm
-
         }
         if form.is_valid():
 
@@ -433,11 +402,16 @@ class ItemEdit(LoginRequiredMixin, View):
                 # 创建保存点
                 try:
                     item = Item.objects.get(id=item_id)
-                    parent_item = Item.objects.get(id=parent)
+                    if parent:
+                        parent_item = Item.objects.get(id=parent)
+                        item.parent = parent_item
                     item.nr = nr
                     item.name = name
                     item.barcode = barcode
-                    item.parent = parent_item
+                    item.effective_start = effective_start
+                    item.effective_end = effective_end
+                    item.unit = unit
+                    item.qty = qty
                     item.save()
                 except Exception as e:
                     print(e)
@@ -508,16 +482,30 @@ class ItemAdd(LoginRequiredMixin, View):
     def post(self, request, *args, **kwargs):
         form = ItemAddForm(request.POST)
         # 获取表单数据
+        # "nr", "unit", "effective_start", "effective_end", "qty"
         nr = request.POST['nr']
         name = request.POST['name']
         barcode = request.POST['barcode']
-        parent = request.POST['parent']
+        if request.POST.get("parent", None):
+            parent = int(request.POST['parent'])
+        else:
+            parent = ""
+        effective_start = request.POST['effective_start']
+        effective_end = request.POST['effective_end']
+        unit = request.POST['unit']
+        qty = request.POST['qty']
+
         data = {
             "nr": nr,
             "name": name,
             "barcode": barcode,
             "parent": parent,
-            "item_all": GetItemParent.get_parent()
+            "item_all": GetItemParent.get_parent(),
+            "effective_start": effective_start,
+            "effective_end": effective_end,
+            "unit": unit,
+            "qty": qty,
+
         }
         if form.is_valid():
 
@@ -1079,7 +1067,26 @@ class RolePermissionEdit(LoginRequiredMixin, View):
 class ItemDetail(View):
     def get(self, request, *args, **kwargs):
         Item.rebuild_item()
+        # # 查找所有根节点
         # parent_items = Item.objects.filter(parent=None).order_by("id")
+        # item_child = []
+        # # 查找所有根节点的子节点
         # for i in parent_items:
-        #     child_item = Item.objects.filter(parent__id=i.id)
-        return HttpResponse("ok")
+        #     child = Item.objects.filter(lft__gt=i.lft, rght__lt=i.rght).values("nr", "unit", "effective_start",
+        #                                                                        "effective_end", "qty", "parent__nr")
+        #     item_child.extend(list(child))
+
+        # data = {
+        #     "data": item_child
+        # }
+
+        data = [
+            {"id": 1,
+             "text": "item1",
+             "nodes": [{
+                 "id": 2,
+                 "text": "item1-1"}]}
+        ]
+        data = json.dumps(data)
+
+        return TemplateResponse(request, "item_detail.html", {"data": data})

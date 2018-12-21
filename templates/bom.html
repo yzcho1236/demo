@@ -1,0 +1,293 @@
+{% extends "base.html" %}
+{% load mptt_tags %}
+{% block title %}
+    物料清单
+{% endblock %}
+{% block content %}
+    <h3>物料清单</h3>
+        <div style="margin-left:370px">
+            <a href="/bom/add/">
+                <button> 添加</button>
+            </a>&nbsp;&nbsp;&nbsp;
+        <a>
+            <button data-toggle="modal" data-target="#myModal">查询</button>
+        </a>&nbsp;&nbsp;&nbsp;
+        <!--  定义模态框触发器，此处为按钮触发  -->
+
+        <div class="modal fade" id="myModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel"
+             aria-hidden="true">
+            <!--  定义模态框，过渡效果为淡入，id为myModal,tabindex=-1可以禁用使用tab切换，aria-labelledby用于引用模态框的标题，aria-hidden=true保持模态框在触发前窗口不可见  -->
+            <div class="modal-dialog">
+                <!--  显示模态框对话框模型（若不写下一个div则没有颜色）  -->
+                <div class="modal-content">
+                    <!--  显示模态框白色背景，所有内容都写在这个div里面  -->
+
+                    <div class="btn-info modal-header">
+                        <!--  模态框标题  -->
+                        <button type="button" class="close" data-dismiss="modal">&times;</button>
+                        <!--  关闭按钮  -->
+                        <h4>查询</h4>
+                        <!--  标题内容  -->
+                    </div>
+                    <form action="/bom/" method="get">
+                        <div class="modal-body">
+                            <!--  模态框内容，我在此处添加一个表单 -->
+                            <div class="form-horizontal" id="xxx">
+                                <div>
+                                    <select id="field" name="field">
+                                        {% for k,v in select_field.items %}
+
+                                            {% if query.0.field == k %}
+                                                <option selected="selected" value="{{ k }}">{{ v }}</option>
+                                            {% else %}
+                                                <option value="{{ k }}">{{ v }}</option>
+                                            {% endif %}
+
+                                        {% endfor %}
+
+                                    </select>&nbsp;&nbsp;&nbsp;
+                                    <select id="op" name="op">
+                                        {% for k,v in select_op.items %}
+
+                                        {% if query.0.op == k %}
+                                            <option selected="selected" value={{ k }}>{{ v }}</option>
+                                        {% else %}
+                                            <option value="{{ k }}">{{ v }}</option>
+                                        {% endif %}
+
+                                        {% endfor %}
+                                    </select>&nbsp;&nbsp;&nbsp;
+                                    <input type="text" value="{{ query.0.data }}" id="data" name="data"/>&nbsp;&nbsp;&nbsp;
+                                </div>
+                                <div>
+                                   <select id="field" name="field">
+                                        {% for k,v in select_field.items %}
+
+                                            {% if query.1.field == k %}
+                                                <option selected="selected" value={{ k }}>{{ v }}</option>
+                                            {% else %}
+                                                <option value="{{ k }}">{{ v }}</option>
+                                            {% endif %}
+
+                                        {% endfor %}
+
+                                    </select>&nbsp;&nbsp;&nbsp;
+                                    <select id="op" name="op">
+                                        {% for k,v in select_op.items %}
+
+                                            {% if query.1.op == k %}
+                                                <option selected="selected" value={{ k }}>{{ v }}</option>
+                                            {% else %}
+                                                <option value="{{ k }}">{{ v }}</option>
+                                            {% endif %}
+
+                                        {% endfor %}
+
+
+                                    </select>&nbsp;&nbsp;&nbsp;
+                                    <input type="text" value="{{ query.1.data }}" id="data" name="data"/>&nbsp;&nbsp;&nbsp;
+
+                                </div>
+                                <div>
+                                   <select id="field" name="field">
+                                        {% for k,v in select_field.items %}
+
+                                            {% if query.2.field == k %}
+                                                <option selected="selected" value={{ k }}>{{ v }}</option>
+                                            {% else %}
+                                                <option value="{{ k }}">{{ v }}</option>
+                                            {% endif %}
+
+                                        {% endfor %}
+
+                                    </select>&nbsp;&nbsp;&nbsp;
+                                    <select id="op" name="op">
+                                        {% for k,v in select_op.items %}
+
+                                        {% if query.2.op == k %}
+                                            <option selected="selected" value={{ k }}>{{ v }}</option>
+                                        {% else %}
+                                            <option value="{{ k }}">{{ v }}</option>
+                                        {% endif %}
+
+                                        {% endfor %}
+
+
+                                    </select>&nbsp;&nbsp;&nbsp;
+                                    <input type="text" value="{{ query.2.data }}" id="data" name="data"/>&nbsp;&nbsp;&nbsp;
+
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="modal-footer">
+                            <button type="submit" class="btn btn-info" id="search">查询</button>
+
+                            <button type="button" class="btn btn-default" data-dismiss="modal">取消</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <a>
+            <button data-toggle="modal" data-target="#myModal1">上传</button>
+        </a>&nbsp;&nbsp;&nbsp;
+        <div class="modal fade" id="myModal1" tabindex="-1" role="dialog" aria-labelledby="myModalLabel"
+             aria-hidden="true">
+            <!--  定义模态框，过渡效果为淡入，id为myModal,tabindex=-1可以禁用使用tab切换，aria-labelledby用于引用模态框的标题，aria-hidden=true保持模态框在触发前窗口不可见  -->
+            <div class="modal-dialog">
+                <!--  显示模态框对话框模型（若不写下一个div则没有颜色）  -->
+                <div class="modal-content">
+                    <!--  显示模态框白色背景，所有内容都写在这个div里面  -->
+
+                    <div class="btn-info modal-header">
+                        <button type="button" class="close" data-dismiss="modal">&times;</button>
+                        <h4>导入Excel文件</h4>
+                    </div>
+                    <div> 文件第一行包含字段名</div>
+                    <div class="modal-body">
+                        <!--  模态框内容，我在此处添加一个表单 -->
+                        <div class="form-horizontal box">
+                            <form action="/item/?page=1{{ query_url }}" method="post" enctype="multipart/form-data">
+                                <input type="file" name="fileUpload" class="file_div"/>
+                                <input type="submit" value="上传文件" class="btn btn-info b_div"/>
+                            </form>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer">
+                        <span class="con">{{ error }}</span>
+                        <button type="button" class="btn btn-default" data-dismiss="modal">取消</button>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+        <a href="/bom/?page=1&format=spreadsheet{{ query_url }}">
+            <button> 下载</button>&nbsp;&nbsp;&nbsp;
+        </a>
+    </div>
+    <br>
+    <br>
+    <br>
+
+<div>
+<div style="float: left;margin-left: 80px;">
+    <ul>
+        {% recursetree nodes %}
+            <li>
+                <a href="/bom/?id={{ node.id }}{{ query_url }}">
+                    {{ node.name }}
+                </a>
+                    {% if not node.is_leaf_node %}
+                        <ul class="children">
+                        <a href="/bom/?id={{ node.id }}{{ query_url }}">
+                            {{ children }}
+                        </a>
+                        </ul>
+                    {% endif %}
+            </li>
+        {% endrecursetree %}
+    </ul>
+</div>
+<div style="float: left;margin-left: 150px;">
+    <label for="item">物料:</label>
+  <input type="text" name="item" value="{{ item }}" id="item" readonly>&nbsp;&nbsp;&nbsp;
+    <a>
+        <button data-toggle="modal" data-target="#myModal2"> bom计算 </button>
+    </a>&nbsp;&nbsp;&nbsp;
+        <div class="modal fade" id="myModal2" tabindex="-1" role="dialog" aria-labelledby="myModalLabel"
+             aria-hidden="true">
+            <!--  定义模态框，过渡效果为淡入，id为myModal,tabindex=-1可以禁用使用tab切换，aria-labelledby用于引用模态框的标题，aria-hidden=true保持模态框在触发前窗口不可见  -->
+            <div class="modal-dialog">
+                <!--  显示模态框对话框模型（若不写下一个div则没有颜色）  -->
+                <div class="modal-content">
+                    <div class="btn-info modal-header">
+                        <button type="button" class="close" data-dismiss="modal">&times;</button>
+                        <h4>bom 计算</h4>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-horizontal">
+                            <form action="/bom/" method="get" enctype="multipart/form-data">
+                                  <input type="text" name="id" value="{{ id }}" id="id" hidden>
+                                  <label for="item">物料:</label>
+                                  <input type="text" name="nr" value="{{ item }}" id="item">
+                                  <label for="qty">物料数量:</label>
+                                  <input type="text" name="qty" value="" id="qty">
+
+                            </form>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer">
+                        <span class="con">{{ error }}</span>
+                        <button type="button" class="btn btn-default" data-dismiss="modal">取消</button>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    <br><br><br>
+        {% if data %}
+        <table>
+        <tr>
+            <th>组成物料</th>
+            <th>生效开始</th>
+            <th>生效结束</th>
+            <th>数量</th>
+            <th>操作</th>
+        </tr>
+        {% for i in data %}
+            <tr>
+
+            <th><input value="{{ i.child }}"></th>
+            <th><input value="{{ i.effective_start }}"></th>
+            <th><input value="{{ i.effective_end }}"></th>
+            <th><input value="{{ i.qty }}"></th>
+            {% if "change_item" in perm %}
+                <th>
+                    <a href="/bom/edit/?id={{ i.id }}">
+                        <button> 修改</button>
+                    </a>
+                </th>
+            {% endif %}
+
+            {% if "delete_item" in perm %}
+                <th>
+                    <a href="/bom/delete/?id={{ i.id }}">
+                        <button> 删除</button>
+                    </a>
+                </th>
+            {% endif %}
+        {% endfor %}
+    </table>
+{% endif %}
+
+</div>
+<br><br><br><br><br><br><br>
+</div>
+<div style="float: left;margin-left: 350px">
+    <br><br><br><br><br>
+    <a href="/bom/?page=1{{ query_url }}">
+        <button> 第一页</button>
+    </a>
+    <a href="/bom/?page={{ pg.prev }}{{ query_url }}">
+        <button> 上一页</button>
+    </a>
+    <input id="curPage" type="text" size="5" value="{{ pg.page }}">
+    <a href="/bom/?page={{ pg.next }}{{ query_url }}">
+        <button> 下一页</button>
+    </a>
+
+    <a href="/bom/?page={{ pg.total_pages }}{{ query_url }}">
+        <button> 最后一页</button>
+    </a>
+
+    &nbsp;&nbsp;&nbsp;共{{ pg.total_pages }}页
+    </div>
+<br>
+    {{ error }}
+
+{% endblock %}
+

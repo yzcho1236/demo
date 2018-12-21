@@ -1,13 +1,18 @@
 import math
+import operator
 from functools import wraps
 from urllib.parse import urlunparse, urlparse
 
+import functools
 import six
 from django.contrib.auth.mixins import PermissionRequiredMixin
 from django.core.exceptions import PermissionDenied
+from django.db.models import Q
 from django.http import HttpResponseRedirect
+from django.utils.encoding import smart_str
 
-from input.models import Item
+from input.models import Item, Tree_Model
+from settings import DEFAULT_PAGESIZE
 
 
 def perm_required(perm, raise_exception=False):
@@ -40,8 +45,8 @@ def passes_test(test_func):
 
 
 class Pagination(object):
-    def __init__(self, queryset, pagesize, page=1):
-        self.pagesize = pagesize
+    def __init__(self, queryset, pagesize=10, page=1):
+        self.pagesize = 10
         self.queryset = queryset
         self.count = float(self.queryset.count())
         self.total_pages = int(math.ceil(self.count / self.pagesize))
@@ -72,6 +77,16 @@ class GetItemParent(object):
         return item_all
 
 
+class GetBom(object):
+    @staticmethod
+    def get_bom():
+        boms = Tree_Model.objects.all().order_by("id").values("id", "nr")
+        bom_all = {}
+        for i in boms:
+            bom_all[i["id"]] = i["nr"]
+        return bom_all
+
+
 _filter_map_jqgrid_django = {
     'ne': ('%(field)s__iexact', True),
     'bn': ('%(field)s__istartswith', True),
@@ -88,5 +103,128 @@ _filter_map_jqgrid_django = {
     'ew': ('%(field)s__iendswith', False),
     'cn': ('%(field)s__icontains', False)
 }
+_filter_map_jqgrid_django_mptt = {
+    'ne': ('%(field)s__exact', True),
+    'bn': ('%(field)s__startswith', True),
+    'en': ('%(field)s__endswith', True),
+    'nc': ('%(field)s__contains', True),
+    'ni': ('%(field)s__in', True),
+    'in': ('%(field)s__in', False),
+    'eq': ('%(field)s__exact', False),
+    'bw': ('%(field)s__startswith', False),
+    'gt': ('%(field)s__gt', False),
+    'ge': ('%(field)s__gte', False),
+    'lt': ('%(field)s__lt', False),
+    'le': ('%(field)s__lte', False),
+    'ew': ('%(field)s__endswith', False),
+    'cn': ('%(field)s__contains', False)
+}
+
 select_op = {'eq': '等于', 'ne': '不等于', 'lt': '小于', 'le': '小于等于', 'gt': '大于等于', 'bw': '开始于', 'bn': '不开始于', 'in': '属于',
              'ni': '不属于', 'cn': '包含', 'nc': '不包含'}
+
+
+class GetQueryData(object):
+    @staticmethod
+    def get_data(obj, query_data, filter_fields):
+        # 查询的条件
+        q_filters = []
+        fs = []
+        if "data" in query_data and "op" in query_data and "data" in query_data:
+            data_query = list(filter(lambda x: x, query_data["data"]))
+            len_data_query = len(data_query)
+            fields = query_data["field"]
+            ops = query_data["op"]
+            # 查询的有效列表
+            # 查询的所有列表
+            for i in range(0, len_data_query):
+                adict = {}
+                if fields[i] in filter_fields:
+                    adict["field"] = fields[i]
+                    adict["op"] = ops[i]
+                    adict["data"] = data_query[i]
+                    fs.append(adict)
+                else:
+                    continue
+
+            for rule in fs:
+                op, field, data = rule['op'], rule['field'], rule['data']
+                filter_fmt, exclude = _filter_map_jqgrid_django[op]
+                filter_str = smart_str(filter_fmt % {'field': field})
+
+                if filter_fmt.endswith('__in'):
+                    filter_kwargs = {filter_str: data.split(',')}
+                else:
+                    filter_kwargs = {filter_str: smart_str(data)}
+
+                if exclude:
+                    q_filters.append(~Q(**filter_kwargs))
+                else:
+                    q_filters.append(Q(**filter_kwargs))
+
+        if q_filters:
+            item_query = obj.objects.filter(functools.reduce(operator.iand, q_filters)).order_by("id")
+        else:
+            item_query = obj.objects.all()
+        # 根据查询的列表拼接URL
+        array = []
+        for i in fs:
+            for k, v in i.items():
+                b = "&" + str(k) + "=" + str(v)
+                array.append(b)
+        query_url = "".join(array)
+
+        return item_query, fs, query_url
+
+    @staticmethod
+    def get_tree(obj, query_data, filter_fields):
+        # 查询的条件
+        q_filters = []
+        fs = []
+        search = False
+        if "data" in query_data and "op" in query_data and "data" in query_data:
+            search = True
+            data_query = list(filter(lambda x: x, query_data["data"]))
+            len_data_query = len(data_query)
+            fields = query_data["field"]
+            ops = query_data["op"]
+            # 查询的有效列表
+            # 查询的所有列表
+            for i in range(0, len_data_query):
+                adict = {}
+                if fields[i] in filter_fields:
+                    adict["field"] = fields[i]
+                    adict["op"] = ops[i]
+                    adict["data"] = data_query[i]
+                    fs.append(adict)
+                else:
+                    continue
+
+            for rule in fs:
+                op, field, data = rule['op'], rule['field'], rule['data']
+                filter_fmt, exclude = _filter_map_jqgrid_django_mptt[op]
+                filter_str = smart_str(filter_fmt % {'field': field})
+
+                if filter_fmt.endswith('__in'):
+                    filter_kwargs = {filter_str: data.split(',')}
+                else:
+                    filter_kwargs = {filter_str: smart_str(data)}
+
+                if exclude:
+                    q_filters.append(~Q(**filter_kwargs))
+                else:
+                    q_filters.append(Q(**filter_kwargs))
+
+        if q_filters:
+            item_query = obj._tree_manager.filter(functools.reduce(operator.iand, q_filters))
+        else:
+            item_query = obj.objects.all()
+        # 根据查询的列表拼接URL
+        array = []
+        for i in fs:
+            for k, v in i.items():
+                b = "&" + str(k) + "=" + str(v)
+                array.append(b)
+        query_url = "".join(array)
+
+        return item_query, fs, query_url, search

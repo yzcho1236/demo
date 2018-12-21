@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}
+    bom添加
+{% endblock %}
+{% block content %}
+    <h3>bom添加</h3>
+    <br><br>
+ <form  action="/bom/add/" method="post">
+ <label for="item">物料:</label>
+  <select name="item" id="item">
+  <option value=""> ----- </option>
+    {% for k,v in item.items %}
+        {% if item_select == k %}
+        <option selected="selected" value="{{ k }}">{{ v }}</option>
+        {% endif %}
+        <option value="{{ k }}">{{ v }}</option>
+    {% endfor %}
+    </select>&nbsp;&nbsp;&nbsp;
+
+ <label for="child">组成物料:</label>
+  <select name="child" id="child">
+  <option value=""> ----- </option>
+    {% for k,v in child.items %}
+        {% if child_select == k %}
+        <option selected="selected" value="{{ k }}">{{ v }}</option>
+        {% endif %}
+        <option value="{{ k }}">{{ v }}</option>
+    {% endfor %}
+    </select>&nbsp;&nbsp;&nbsp;
+      <label for="effective_start">effective_start:</label>
+  <input type="date" name="effective_start" value="{{ effective_start }}" id="effective_start">&nbsp;&nbsp;&nbsp;
+     <label for="effective_end">effective_end:</label>
+  <input type="date" name="effective_end" value="{{ effective_end }}" id="effective_end">&nbsp;&nbsp;&nbsp;
+     <label for="qty">qty:</label>
+  <input type="text" name="qty" value="{{ qty }}" id="qty">&nbsp;&nbsp;&nbsp;
+
+  <br>
+    <span class="con">{{ error }}</span>
+     <br>
+    <input type="submit" value="提交" />
+ </form>
+    <a href="/bom/">
+    <button> 返回 </button>
+    </a>
+
+
+
+{% endblock %}

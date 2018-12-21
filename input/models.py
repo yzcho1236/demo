@@ -3,6 +3,7 @@ from datetime import datetime
 
 from django.contrib.auth.models import AbstractUser, Permission
 from django.db import models, DEFAULT_DB_ALIAS, transaction, connections
+from mptt.fields import TreeForeignKey
 
 
 class Perm(models.Model):
@@ -83,6 +84,8 @@ class Item(models.Model):
     nr = models.CharField(max_length=300, unique=True, verbose_name="代码")
     name = models.CharField(max_length=300, verbose_name="名称")
     barcode = models.CharField(max_length=300, verbose_name="条码")
+    unit = models.CharField(max_length=300, verbose_name="单位", null=True, blank=True)
+    qty = models.IntegerField(verbose_name="数量", null=True, blank=True)
     effective_start = models.DateField(verbose_name="生效开始", null=True, blank=True,
                                        default=datetime(datetime.now().year, datetime.now().month, datetime.now().day))
     effective_end = models.DateField(verbose_name="生效结束", null=True, blank=True, default=datetime(2030, 12, 31))
@@ -99,18 +102,10 @@ class Item(models.Model):
     def __str__(self):
         return self.nr
 
-    # def set_ancestor(self):
-    #     if self.parent is None:
-    #         self.ancestor = None
-    #     else:
-    #
-    #         self.ancestor = ""
-
     def save(self, *args, **kwargs):
         self.lft = None
         self.rght = None
         self.lvl = None
-        # self.set_ancestor()
         super(Item, self).save(*args, **kwargs)
 
     def delete(self, *args, **kwargs):
@@ -200,20 +195,29 @@ class Item(models.Model):
         # 批量更新
         with transaction.atomic(using=database):
             connections[database].cursor().executemany(
-                'update %s set lft=%%s, rght=%%s, lvl=%%s where name = %%s' % connections[database].ops.quote_name(
+                'update %s set lft=%%s, rght=%%s, lvl=%%s where nr = %%s' % connections[database].ops.quote_name(
                     cls._meta.db_table),
                 updates)
 
 
-"""WITH recursive T (id, name, parent_id, path, depth)  as (
-    select id, name, parent_id, ARRAY[id] AS path, 1 as depth
-    from input_item
-    where parent_id is null
-    union all
-    select  D.id, D.name, D.parent_id, T.path || D.id, T.depth + 1 as depth
-    from input_item D
-    join T on D.parent_id = T.id
-    )
-    select id, name, parent_id, path, depth from T
-order by path;
-"""
+from mptt.models import MPTTModel
+
+
+class Tree_Model(MPTTModel):
+    id = models.AutoField(primary_key=True)
+    nr = models.CharField(max_length=300, unique=True, verbose_name="代码")
+    name = models.CharField(max_length=300, verbose_name="名称")
+    barcode = models.CharField(max_length=300, verbose_name="条码", null=True, blank=True)
+    unit = models.CharField(max_length=300, verbose_name="单位", null=True, blank=True)
+    qty = models.IntegerField(verbose_name="数量", null=True, blank=True)
+    effective_start = models.DateField(verbose_name="生效开始", null=True, blank=True,
+                                       default=datetime(datetime.now().year, datetime.now().month, datetime.now().day))
+    effective_end = models.DateField(verbose_name="生效结束", null=True, blank=True, default=datetime(2030, 12, 31))
+
+    parent = TreeForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='children')
+
+    def __str__(self):
+        return self.nr
+
+    class MPTTMeta:
+        unique_together = (('nr', 'parent', 'qty', 'effective_start', 'effective_end'),)
