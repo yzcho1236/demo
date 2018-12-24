@@ -45,12 +45,10 @@
 <button> 退出登录 </button>
 </a>
 <ul>
-{#    {% if "view_item" in perm %}#}
         <li><a href="/item/?page=1">物料</a></li>
         <br>
-{#    {% endif %}#}
          <li><a href="/item/detail/">物料清单</a></li><br>
-         <li><a href="/bom/">bom</a></li><br>
+         <li><a href="/bom/?page=1{{ query_url }}">bom</a></li><br>
 
       <li><a href="/user/">用户管理</a></li>
     <br>

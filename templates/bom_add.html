@@ -6,25 +6,16 @@
     <h3>bom添加</h3>
     <br><br>
  <form  action="/bom/add/" method="post">
- <label for="item">物料:</label>
+ <input type="text" name="parent_id" value="{{ parent_id }}" hidden>&nbsp;&nbsp;&nbsp;
+ <label for="parent">物料:</label>
+ <input type="text" name="parent" value="{{ parent }}" id="parent" readonly>&nbsp;&nbsp;&nbsp;
+ <label for="item">组成物料:</label>
   <select name="item" id="item">
-  <option value=""> ----- </option>
-    {% for k,v in item.items %}
-        {% if item_select == k %}
-        <option selected="selected" value="{{ k }}">{{ v }}</option>
+    {% for i in items %}
+        {% if item == i %}
+        <option selected="selected" value="{{ i }}">{{ i }}</option>
         {% endif %}
-        <option value="{{ k }}">{{ v }}</option>
-    {% endfor %}
-    </select>&nbsp;&nbsp;&nbsp;
-
- <label for="child">组成物料:</label>
-  <select name="child" id="child">
-  <option value=""> ----- </option>
-    {% for k,v in child.items %}
-        {% if child_select == k %}
-        <option selected="selected" value="{{ k }}">{{ v }}</option>
-        {% endif %}
-        <option value="{{ k }}">{{ v }}</option>
+        <option value="{{ i }}">{{ i }}</option>
     {% endfor %}
     </select>&nbsp;&nbsp;&nbsp;
       <label for="effective_start">effective_start:</label>
@@ -42,7 +33,4 @@
     <a href="/bom/">
     <button> 返回 </button>
     </a>
-
-
-
 {% endblock %}

@@ -6,9 +6,6 @@
 {% block content %}
     <h3>物料清单</h3>
         <div style="margin-left:370px">
-            <a href="/bom/add/">
-                <button> 添加</button>
-            </a>&nbsp;&nbsp;&nbsp;
         <a>
             <button data-toggle="modal" data-target="#myModal">查询</button>
         </a>&nbsp;&nbsp;&nbsp;
@@ -193,7 +190,10 @@
 </div>
 <div style="float: left;margin-left: 150px;">
     <label for="item">物料:</label>
-  <input type="text" name="item" value="{{ item }}" id="item" readonly>&nbsp;&nbsp;&nbsp;
+  <input type="text" name="item" value="{{ parent }}" id="item" readonly>&nbsp;&nbsp;&nbsp;
+            <a href="/bom/add/?id={{ id }}&name={{ parent }}">
+                <button> 添加</button>
+            </a>&nbsp;&nbsp;&nbsp;
     <a>
         <button data-toggle="modal" data-target="#myModal2"> bom计算 </button>
     </a>&nbsp;&nbsp;&nbsp;
@@ -209,20 +209,19 @@
                     </div>
                     <div class="modal-body">
                         <div class="form-horizontal">
-                            <form action="/bom/" method="get" enctype="multipart/form-data">
+                            <form action="/bom/calculate/?id={{ id }}&qty={{ qty }}" method="get" enctype="multipart/form-data">
                                   <input type="text" name="id" value="{{ id }}" id="id" hidden>
                                   <label for="item">物料:</label>
-                                  <input type="text" name="nr" value="{{ item }}" id="item">
+                                  <input type="text" name="nr" value="{{ parent }}" id="item" readonly>&nbsp;&nbsp;&nbsp;
                                   <label for="qty">物料数量:</label>
-                                  <input type="text" name="qty" value="" id="qty">
-
+                                  <input type="text" name="qty" value="" id="qty">&nbsp;&nbsp;&nbsp;
+                                <input type="submit" value="计算" class="btn btn-info"/>
                             </form>
                         </div>
                     </div>
 
                     <div class="modal-footer">
                         <span class="con">{{ error }}</span>
-                        <button type="button" class="btn btn-default" data-dismiss="modal">取消</button>
                     </div>
 
                 </div>

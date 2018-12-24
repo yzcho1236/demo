@@ -79,12 +79,19 @@ class GetItemParent(object):
 
 class GetBom(object):
     @staticmethod
-    def get_bom():
-        boms = Tree_Model.objects.all().order_by("id").values("id", "nr")
-        bom_all = {}
-        for i in boms:
-            bom_all[i["id"]] = i["nr"]
-        return bom_all
+    def get_bom(id, name):
+        alist_id = [id]
+        alist_name = [name]
+        item = Tree_Model.objects.get(id=id)
+        for i in item.get_children():
+            alist_id.append(i.id)
+            alist_name.append(i.name)
+        for i in item.get_ancestors():
+            alist_id.append(i.id)
+            alist_name.append(i.name)
+        boms = Tree_Model.objects.all().exclude(Q(name__in=alist_name) | Q(id__in=alist_id)).values_list("name",
+                                                                                                         flat=True).distinct()
+        return boms
 
 
 _filter_map_jqgrid_django = {

@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}
+    bom计算
+{% endblock %}
+{% block content %}
+    <h3>bom计算</h3>
+    <a href="/bom/calculate/?id={{ id }}&qty={{ qty }}&format=spreadsheet" style="margin-left: 500px;">
+    <button> 下载 </button>
+    </a>
+    <br><br>
+    <div style="margin-left: 100px;">
+
+    <label for="item">物料:</label>
+    <input type="text" name="nr" value="{{ item }}" id="item">&nbsp;&nbsp;&nbsp;
+    <label for="qty">物料数量:</label>
+    <input type="text" name="qty" value="{{ qty }}" id="qty">&nbsp;&nbsp;&nbsp;
+    </div>
+    <br><br>
+    {% if purchase %}
+    <table border="1px;" style="margin-left: 120px;">
+        <tr>
+            <th>采购物料</th>
+            <th>数量</th>
+        </tr>
+            {% for i in purchase %}
+        <tr>
+            <th><input value="{{ i.name }}"></th>
+            <th><input value="{{ i.qty }}"></th>
+        </tr>
+            {% endfor %}
+    </table>
+    {% endif %}
+    <br><br>
+    {% if manufacture%}
+    <table style="margin-left: 120px;">
+    <tr>
+    <th>制造物料</th>
+    <th>数量</th>
+    </tr>
+    <tr>
+        {% for i in manufacture %}
+            <th><input value="{{ i.name }}"></th>
+            <th><input value="{{ i.qty }}"></th>
+        {% endfor %}
+    </tr>
+    </table>
+    {% endif %}
+
+    <a href="/bom/" style="margin-left: 500px;">
+    <button> 返回 </button>
+    </a>
+
+{% endblock %}

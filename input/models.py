@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime
-
+from mptt.models import MPTTModel
 from django.contrib.auth.models import AbstractUser, Permission
 from django.db import models, DEFAULT_DB_ALIAS, transaction, connections
 from mptt.fields import TreeForeignKey
@@ -200,12 +200,9 @@ class Item(models.Model):
                 updates)
 
 
-from mptt.models import MPTTModel
-
-
 class Tree_Model(MPTTModel):
     id = models.AutoField(primary_key=True)
-    nr = models.CharField(max_length=300, unique=True, verbose_name="代码")
+    nr = models.CharField(max_length=300, verbose_name="代码")
     name = models.CharField(max_length=300, verbose_name="名称")
     barcode = models.CharField(max_length=300, verbose_name="条码", null=True, blank=True)
     unit = models.CharField(max_length=300, verbose_name="单位", null=True, blank=True)
