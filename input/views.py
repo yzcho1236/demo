@@ -9,8 +9,8 @@ from django.utils.encoding import force_str
 from django.views import View
 from openpyxl import Workbook
 from openpyxl.cell import WriteOnlyCell
-
-from demo.util import Pagination, GetItemParent, GetBom, GetQueryData, select_op
+from django.utils import timezone
+from demo.util import Pagination, GetBom, GetQueryData, select_op
 from input.form import BomForm, BomEditForm
 from input.models import Tree_Model
 
@@ -96,6 +96,8 @@ class Bom(View):
         page = request.GET.get("page", 1)
         query_data = dict(request.GET.lists())
         item_query, fs, query_url, search = GetQueryData.get_tree(Tree_Model, query_data, self.select_field)
+        print(fs)
+        print(query_url)
         if search:
             request.session["bom_query_url"] = query_url
         count = float(item_query.count())
@@ -105,36 +107,51 @@ class Bom(View):
         item_id = request.GET.get("id", None)
         page = request.GET.get("page", 1)
         data = []
-        if item_id:
-            id = item_id
+        if item_query:
+            if item_id:
+                id = item_id
+            else:
+                id = item_query.first().id
+            parent = Tree_Model.objects.get(id=id)
+            pagination = Pagination(item_query, request.pagesizes, page)
+            current_time = timezone.now()
+            items = Tree_Model.objects._mptt_filter(parent__id=id, effective_end__gte=current_time)
+            for i in items:
+                adict = {}
+                adict["id"] = i.id
+                adict["child"] = i.name
+                adict["parent"] = parent.name
+                adict["effective_start"] = i.effective_start
+                adict["effective_end"] = i.effective_end
+                adict["qty"] = i.qty
+                data.append(adict)
+            content = {
+                "id": id,
+                "parent": parent.name,
+                "pg": pagination,
+                "nodes": pagination.get_objs(),
+                "data": data,
+                "query": fs,
+                "query_url": request.session.get("bom_query_url", None) if request.session.get("bom_query_url",
+                                                                                               None) else "",
+                "select_op": select_op,
+                "select_field": self.select_field,
+                "perm": request.perm
+            }
         else:
-            id = item_query.first().id
-        parent = Tree_Model.objects.get(id=id)
-        pagination = Pagination(item_query, request.pagesizes, page)
-        items = Tree_Model.objects._mptt_filter(parent__id=id)
-        for i in items:
-            adict = {}
-            adict["id"] = i.id
-            adict["child"] = i.name
-            adict["parent"] = parent.name
-            adict["effective_start"] = i.effective_start
-            adict["effective_end"] = i.effective_end
-            adict["qty"] = i.qty
-            data.append(adict)
-
-        content = {
-            "id": id,
-            "parent": parent.name,
-            "pg": pagination,
-            "nodes": pagination.get_objs(),
-            "data": data,
-            "query": fs,
-            "query_url": request.session.get("bom_query_url", None) if request.session.get("bom_query_url",
-                                                                                           None) else "",
-            "select_op": select_op,
-            "select_field": self.select_field,
-            "perm": request.perm
-        }
+            content = {
+                "id": "",
+                "parent": "",
+                "pg": pagination,
+                "nodes": pagination.get_objs(),
+                "data": data,
+                "query": fs,
+                "query_url": request.session.get("bom_query_url", None) if request.session.get("bom_query_url",
+                                                                                               None) else "",
+                "select_op": select_op,
+                "select_field": self.select_field,
+                "perm": request.perm
+            }
         return content
 
 
@@ -262,45 +279,63 @@ class BomCalculate(View):
             # 下载Excel
             data = self._get_data(request)
             print(data)
-            wb = Workbook()
+            wb = Workbook(write_only=True)
             title = "bom计算"
-            # ws1 = wb.worksheets[0]
-            # ws1.title = "采购物料"
-            # ws2 = wb.worksheets[1]
-            # ws2.title = "制造物料"
-            ws1 = wb.create_sheet("采购物料", 0)
-            ws2 = wb.create_sheet("制造物料", 1)
-
+            ws1 = wb.create_sheet("采购物料")
+            ws2 = wb.create_sheet("制造物料")
+            header_ws1 = []
+            header_ws2 = []
             header1 = []
             header2 = []
 
+            common_headers = ("物料", "物料数量")
             purchase_headers = ("采购物料", "数量")
             manufacture_headers = ("制造物料", "数量")
-            for h in purchase_headers:
-                cell = WriteOnlyCell(ws1, value=h)
-                header1.append(cell)
-            ws1.append(header1)
             body_fields = ("name", "qty")
-            for i in data['purchase']:
-                body = []
-                for field in body_fields:
-                    if field in i:
-                        cell = WriteOnlyCell(ws1, value=i[field])
-                        body.append(cell)
-                ws1.append(body)
 
-            for h in manufacture_headers:
-                cell = WriteOnlyCell(ws2, value=h)
-                header2.append(cell)
-            ws2.append(header2)
-            for i in data['purchase']:
-                body = []
-                for field in body_fields:
-                    if field in i:
-                        cell = WriteOnlyCell(ws2, value=i[field])
-                        body.append(cell)
-                ws2.append(body)
+            for i in common_headers:
+                cell = WriteOnlyCell(ws1, value=i)
+                header_ws1.append(cell)
+            ws1.append(header_ws1)
+            cell1 = WriteOnlyCell(ws1, value=data["item"])
+            cell2 = WriteOnlyCell(ws1, value=data["qty"])
+            body_ws1 = [cell1, cell2]
+            ws1.append(body_ws1)
 
+            if data['purchase']:
+                for h in purchase_headers:
+                    cell = WriteOnlyCell(ws1, value=h)
+                    header1.append(cell)
+                ws1.append(header1)
+                for i in data['purchase']:
+                    body = []
+                    for field in body_fields:
+                        if field in i:
+                            cell = WriteOnlyCell(ws1, value=i[field])
+                            body.append(cell)
+                    ws1.append(body)
+
+            for i in common_headers:
+                cell = WriteOnlyCell(ws2, value=i)
+                header_ws2.append(cell)
+            ws2.append(header_ws2)
+            cell1 = WriteOnlyCell(ws2, value=data["item"])
+            cell2 = WriteOnlyCell(ws2, value=data["qty"])
+            body_ws2 = [cell1, cell2]
+            ws2.append(body_ws2)
+
+            if data['manufacture']:
+                for h in manufacture_headers:
+                    cell = WriteOnlyCell(ws2, value=h)
+                    header2.append(cell)
+                ws2.append(header2)
+                for i in data['manufacture']:
+                    body = []
+                    for field in body_fields:
+                        if field in i:
+                            cell = WriteOnlyCell(ws2, value=i[field])
+                            body.append(cell)
+                    ws2.append(body)
             output = BytesIO()
             wb.save(output)
             response = HttpResponse(
@@ -321,6 +356,7 @@ class BomCalculate(View):
         manufacture_list = []
         purchase = item.get_leafnodes()
         child = item.get_descendants()
+
         if list(purchase) == list(child):
             for i in purchase:
                 adict = {}
@@ -329,8 +365,6 @@ class BomCalculate(View):
                 purchase_list.append(adict)
 
         else:
-
-            # manufacture = manufacture[:-len(purchase)]
             # 制造物料的qty
             for i in child:
                 adict = {}
@@ -343,10 +377,6 @@ class BomCalculate(View):
                 adict["qty"] = i.qty * number
                 adict["name"] = i.name
                 purchase_list.append(adict)
-
-        def getQty(child):
-            for i in child:
-                i.get_children()
 
         content = {
             "id": id,

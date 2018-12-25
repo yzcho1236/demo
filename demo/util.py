@@ -1,18 +1,14 @@
 import math
 import operator
 from functools import wraps
-from urllib.parse import urlunparse, urlparse
-
 import functools
 import six
-from django.contrib.auth.mixins import PermissionRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.db.models import Q
+from django.utils import timezone
 from django.http import HttpResponseRedirect
 from django.utils.encoding import smart_str
-
 from input.models import Item, Tree_Model
-from settings import DEFAULT_PAGESIZE
 
 
 def perm_required(perm, raise_exception=False):
@@ -187,25 +183,33 @@ class GetQueryData(object):
     def get_tree(obj, query_data, filter_fields):
         # 查询的条件
         q_filters = []
+        alist = []
         fs = []
         search = False
+        current_time = timezone.now()
         if "data" in query_data and "op" in query_data and "data" in query_data:
             search = True
-            data_query = list(filter(lambda x: x, query_data["data"]))
-            len_data_query = len(data_query)
+            data_query = query_data["data"]
+            data_len = len(data_query)
+
             fields = query_data["field"]
             ops = query_data["op"]
-            # 查询的有效列表
-            # 查询的所有列表
-            for i in range(0, len_data_query):
+
+            # 这里出错了
+            for i in range(data_len):
                 adict = {}
                 if fields[i] in filter_fields:
                     adict["field"] = fields[i]
                     adict["op"] = ops[i]
-                    adict["data"] = data_query[i]
-                    fs.append(adict)
+                    adict["data"] = query_data["data"][i]
+                    alist.append(adict)
                 else:
                     continue
+
+            # 将有效的查询条件放到fs中
+            for i in range(len(alist)):
+                if alist[i]["data"]:
+                    fs.append(alist[i])
 
             for rule in fs:
                 op, field, data = rule['op'], rule['field'], rule['data']
@@ -225,7 +229,7 @@ class GetQueryData(object):
         if q_filters:
             item_query = obj._tree_manager.filter(functools.reduce(operator.iand, q_filters))
         else:
-            item_query = obj.objects.all()
+            item_query = obj.objects.all().filter(effective_end__gte=current_time)
         # 根据查询的列表拼接URL
         array = []
         for i in fs:

@@ -189,6 +189,7 @@
     </ul>
 </div>
 <div style="float: left;margin-left: 150px;">
+    {% if parent %}
     <label for="item">物料:</label>
   <input type="text" name="item" value="{{ parent }}" id="item" readonly>&nbsp;&nbsp;&nbsp;
             <a href="/bom/add/?id={{ id }}&name={{ parent }}">
@@ -227,6 +228,7 @@
                 </div>
             </div>
         </div>
+    {% endif %}
     <br><br><br>
         {% if data %}
         <table>
