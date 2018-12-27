@@ -146,7 +146,7 @@
                     <div class="modal-body">
                         <!--  模态框内容，我在此处添加一个表单 -->
                         <div class="form-horizontal box">
-                            <form action="/item/?page=1{{ query_url }}" method="post" enctype="multipart/form-data">
+                            <form action="/bom/" method="post" enctype="multipart/form-data">
                                 <input type="file" name="fileUpload" class="file_div"/>
                                 <input type="submit" value="上传文件" class="btn btn-info b_div"/>
                             </form>
@@ -190,9 +190,11 @@
 </div>
 <div style="float: left;margin-left: 150px;">
     {% if parent %}
-    <label for="item">物料:</label>
-  <input type="text" name="item" value="{{ parent }}" id="item" readonly>&nbsp;&nbsp;&nbsp;
-            <a href="/bom/add/?id={{ id }}&name={{ parent }}">
+    <label for="parent">物料:</label>
+  <input type="text" name="parent" value="{{ parent }}" id="parent" readonly>&nbsp;&nbsp;&nbsp;
+    <label for="parent_nr">物料代码:</label>
+  <input type="text" name="parent_nr" value="{{ parent_nr }}" id="parent_nr" readonly>&nbsp;&nbsp;&nbsp;
+            <a href="/bom/add/?id={{ id }}&name={{ parent }}&nr={{ parent_nr }}">
                 <button> 添加</button>
             </a>&nbsp;&nbsp;&nbsp;
     <a>
@@ -214,6 +216,8 @@
                                   <input type="text" name="id" value="{{ id }}" id="id" hidden>
                                   <label for="item">物料:</label>
                                   <input type="text" name="nr" value="{{ parent }}" id="item" readonly>&nbsp;&nbsp;&nbsp;
+                                    <label for="parent_nr">物料代码:</label>
+                                    <input type="text" name="parent_nr" value="{{ parent_nr }}" id="parent_nr" readonly>
                                   <label for="qty">物料数量:</label>
                                   <input type="text" name="qty" value="" id="qty">&nbsp;&nbsp;&nbsp;
                                 <input type="submit" value="计算" class="btn btn-info"/>
@@ -234,6 +238,7 @@
         <table>
         <tr>
             <th>组成物料</th>
+            <th>组成物料代码</th>
             <th>生效开始</th>
             <th>生效结束</th>
             <th>数量</th>
@@ -242,13 +247,14 @@
         {% for i in data %}
             <tr>
 
-            <th><input value="{{ i.child }}"></th>
-            <th><input value="{{ i.effective_start }}"></th>
-            <th><input value="{{ i.effective_end }}"></th>
-            <th><input value="{{ i.qty }}"></th>
+            <th><input value="{{ i.item }}" readonly></th>
+            <th><input value="{{ i.item_nr }}" readonly></th>
+            <th><input value="{{ i.effective_start }}" readonly></th>
+            <th><input value="{{ i.effective_end }}" readonly></th>
+            <th><input value="{{ i.qty }}" readonly></th>
             {% if "change_item" in perm %}
                 <th>
-                    <a href="/bom/edit/?id={{ i.id }}">
+                    <a href="/bom/edit/?item={{ i.item }}&parent={{ i.parent }}&id={{ i.id }}">
                         <button> 修改</button>
                     </a>
                 </th>
@@ -269,7 +275,7 @@
 <br><br><br><br><br><br><br>
 </div>
 <div style="float: left;margin-left: 350px">
-    <br><br><br><br><br>
+    <br><br><br><br><br><br><br><br>
     <a href="/bom/?page=1{{ query_url }}">
         <button> 第一页</button>
     </a>

@@ -28,21 +28,21 @@
             <th><input value="{{ i.qty }}"></th>
         </tr>
             {% endfor %}
-    </table>
+    </table >
     {% endif %}
     <br><br>
     {% if manufacture%}
-    <table style="margin-left: 120px;">
+    <table border="1px;" style="margin-left: 120px;">
     <tr>
     <th>制造物料</th>
     <th>数量</th>
     </tr>
-    <tr>
         {% for i in manufacture %}
+    <tr>
             <th><input value="{{ i.name }}"></th>
             <th><input value="{{ i.qty }}"></th>
-        {% endfor %}
     </tr>
+        {% endfor %}
     </table>
     {% endif %}
 

@@ -230,7 +230,7 @@ class ItemView(View):
                             set_header = set(upload_fields)
 
                             set_header.discard("id")
-                            if set_header != required_fields:
+                            if set_header.intersection(required_fields) != required_fields:
                                 data = self._get_data(request)
                                 data["error"] = "上传字段不全，请重新上传"
                                 return TemplateResponse(request, "item.html", data)

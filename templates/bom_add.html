@@ -8,7 +8,9 @@
  <form  action="/bom/add/" method="post">
  <input type="text" name="parent_id" value="{{ parent_id }}" hidden>&nbsp;&nbsp;&nbsp;
  <label for="parent">物料:</label>
- <input type="text" name="parent" value="{{ parent }}" id="parent" readonly>&nbsp;&nbsp;&nbsp;
+ <input type="text" name="parent" value="{{ parent }}" readonly>&nbsp;&nbsp;&nbsp;
+ <label for="parent_nr">物料代码:</label>
+ <input type="text" name="parent_nr" value="{{ parent_nr }}" id="parent_nr" readonly>&nbsp;&nbsp;&nbsp;
  <label for="item">组成物料:</label>
   <select name="item" id="item">
     {% for i in items %}
@@ -18,6 +20,9 @@
         <option value="{{ i }}">{{ i }}</option>
     {% endfor %}
     </select>&nbsp;&nbsp;&nbsp;
+  <label for="item_nr">组成物料代码:</label>
+ <input type="text" name="item_nr" value="">&nbsp;&nbsp;&nbsp;
+
       <label for="effective_start">effective_start:</label>
   <input type="date" name="effective_start" value="{{ effective_start }}" id="effective_start">&nbsp;&nbsp;&nbsp;
      <label for="effective_end">effective_end:</label>
@@ -27,10 +32,10 @@
 
   <br>
     <span class="con">{{ error }}</span>
-     <br>
-    <input type="submit" value="提交" />
+     <br><br>
+    <input type="submit" value="提交"  style="margin-left: 50px;margin-right: 20px;float: left"/>
  </form>
-    <a href="/bom/">
+    <a href="/bom/" style="margin-left: 20px; margin-right: 20px; float: left">
     <button> 返回 </button>
     </a>
 {% endblock %}

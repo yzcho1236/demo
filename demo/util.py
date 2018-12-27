@@ -41,8 +41,8 @@ def passes_test(test_func):
 
 
 class Pagination(object):
-    def __init__(self, queryset, pagesize=10, page=1):
-        self.pagesize = 10
+    def __init__(self, queryset, pagesize=20, page=1):
+        self.pagesize = 20
         self.queryset = queryset
         self.count = float(self.queryset.count())
         self.total_pages = int(math.ceil(self.count / self.pagesize))

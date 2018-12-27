@@ -1,13 +1,15 @@
+import traceback
 import urllib
 from datetime import datetime
 from io import BytesIO
 
 from django.db import transaction
+from django.db.models import NOT_PROVIDED, AutoField
 from django.http import HttpResponse, HttpResponseRedirect
 from django.template.response import TemplateResponse
 from django.utils.encoding import force_str
 from django.views import View
-from openpyxl import Workbook
+from openpyxl import Workbook, load_workbook
 from openpyxl.cell import WriteOnlyCell
 from django.utils import timezone
 from demo.util import Pagination, GetBom, GetQueryData, select_op
@@ -16,9 +18,13 @@ from input.models import Tree_Model
 
 
 class Bom(View):
-    file_headers = ('id', '物料', '组成物料', '生效开始', "生效结束", "数量")
-    select_field = {"id": "id", 'parent__name': '物料', 'name': '组成物料', 'effective_start': '生效开始',
+    file_headers = ('id', '物料', '物料代码', '组成物料', '组成物料代码', '生效开始', "生效结束", "数量")
+    select_field = {"id": "id", 'parent__name': '物料', "parent__nr": '物料代码', 'name': '组成物料', 'nr': '组成物料代码',
+                    'effective_start': '生效开始',
                     'effective_end': '生效结束'}
+    uploader_header = {"id": "id", "物料": "parent", "物料代码": "parent_nr", "组成物料": "name", "代码": "nr",
+                       "生效开始": "effective_start", "生效结束": "effective_end",
+                       "数量": "qty"}
 
     def get(self, request, *args, **kwargs):
         fmt = request.GET.get('format', None)
@@ -38,16 +44,19 @@ class Bom(View):
                 headers.append(cell)
             ws.append(headers)
 
-            body_fields = ("id", "parent", "child", "effective_start", "effective_end", "qty")
+            body_fields = ("id", "parent", "parent_nr", "item", "item_nr", "effective_start", "effective_end", "qty")
             data = []
             for i in json["nodes"]:
                 adict = {}
                 adict["id"] = i.id
-                adict["child"] = i.name
+                adict["item"] = i.name
+                adict["item_nr"] = i.nr
                 if i.parent:
                     adict["parent"] = i.parent.name
+                    adict["parent_nr"] = i.parent.nr
                 else:
-                    adict["parent"] = i.name
+                    adict["parent"] = ""
+                    adict["parent_nr"] = ""
                 adict["effective_start"] = i.effective_start
                 adict["effective_end"] = i.effective_end
                 adict["qty"] = i.qty
@@ -73,20 +82,122 @@ class Bom(View):
 
     def post(self, request, *args, **kwargs):
         """上传Excel"""
+        data = self._get_data(request)
         if request.FILES and len(request.FILES) == 1:
             count = 0
             for filename, file in request.FILES.items():
                 if file.content_type == 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':
                     count += 1
             if count == 0:
-                data = self._get_data(request)
                 data["error"] = "请选择Excel文件进行上传"
                 return TemplateResponse(request, "item.html", data)
+            else:
+                for name, file in request.FILES.items():
+                    wb = load_workbook(filename=file, read_only=True, data_only=True)
+                    # 第一个sheet
+                    sheet = wb[wb.sheetnames[0]]
+                    row_count = 0
+                    row_number = 1
+                    # 对应表头是在第几列
+                    headers_index = {}
+                    # Excel传入的字段和模型类字段的对应关系
+                    headers_field_name = {}
+
+                    for row in sheet.iter_rows():
+                        row_count += 1
+                        if row_number == 1:
+                            row_number += 1
+                            # 获取excelheader
+                            _headers = [i.value for i in row]
+                            index = 0
+
+                            for h in _headers:
+                                if h in self.uploader_header:
+                                    headers_index[h] = index
+                                    headers_field_name[h] = self.uploader_header[h]
+                                index += 1
+                        # 取值
+                        else:
+                            values = [i.value for i in row]
+                            none_len = 0
+                            for v in values:
+                                if v is None:
+                                    none_len += 1
+
+                            if none_len == len(values):
+                                continue
+                            upload_fields = [v for k, v in headers_field_name.items()]
+
+                            # 必传字段
+                            required_fields = set()
+                            for i in Tree_Model._meta.fields:
+                                if not i.blank and i.default == NOT_PROVIDED and not isinstance(i, AutoField):
+                                    required_fields.add(i.name)
+                            aset = {"level", "rght", "tree_id", "lft"}
+                            required_fields = required_fields.difference(aset)
+                            set_header = set(upload_fields)
+                            common_fields = set_header.intersection(required_fields)
+                            if common_fields != required_fields:
+                                data["error"] = "上传字段不全，请重新上传"
+                                return TemplateResponse(request, "bom.html", data)
+
+                            # 数据库中没有name时进行创建
+                            if values[headers_index["组成物料"]]:
+                                item = Tree_Model.objects.filter(name=values[headers_index["组成物料"]])
+                                if not item:
+                                    adict = {}
+                                    for k, v in headers_index.items():
+                                        value = values[v]
+                                        field_name = headers_field_name[k]
+                                        if field_name == "name":
+                                            adict["name"] = value
+                                        if field_name == "qty":
+                                            adict["qty"] = value
+                                        if field_name == "effective_start":
+                                            adict["effective_start"] = value if value else datetime(datetime.now().year,
+                                                                                                    datetime.now().month,
+                                                                                                    datetime.now().day)
+                                        if field_name == "effective_end":
+                                            adict["effective_end"] = value if value else datetime(2030, 12, 31)
+
+                                        if field_name == "parent":
+                                            if value:
+                                                parent_all = Tree_Model.objects.filter(name=value)
+                                                if parent_all:
+                                                    adict["parent"] = parent_all
+                                                else:
+                                                    data["error"] = "物料数据不存在"
+                                                    return TemplateResponse(request, "bom.html", data)
+                                            else:
+                                                adict["parent"] = value
+                                    for k, v in adict.items():
+                                        if k in ["name", "qty"] and v is None:
+                                            data["error"] = "%s 字段值不能为空" % k
+                                            return TemplateResponse(request, "bom.html", data)
+                                    # TODO 数据创建有问题
+                                    try:
+                                        if adict.get("parent", None):
+                                            Tree_Model.objects.bulk_create(name=adict["name"],
+                                                                           parent__name=adict["parent"],
+                                                                           qty=adict["qty"],
+                                                                           effective_start=adict["effective_start"],
+                                                                           effective_end=adict["effective_end"])
+                                        else:
+                                            Tree_Model.objects.create(name=adict["name"], qty=adict["qty"],
+                                                                      effective_start=adict["effective_start"],
+                                                                      effective_end=adict["effective_end"])
+                                    except Exception as e:
+                                        print(e)
+                                        data["error"] = "上传创建失败"
+                                        return TemplateResponse(request, "bom.html", data)
+                            else:
+                                pass
+
+                                # 有name进行更新或者创建
 
 
 
         else:
-            data = self._get_data(request)
             data["error"] = "没有上传文件"
             return TemplateResponse(request, "item.html", data)
 
@@ -96,12 +207,10 @@ class Bom(View):
         page = request.GET.get("page", 1)
         query_data = dict(request.GET.lists())
         item_query, fs, query_url, search = GetQueryData.get_tree(Tree_Model, query_data, self.select_field)
-        print(fs)
-        print(query_url)
         if search:
             request.session["bom_query_url"] = query_url
         count = float(item_query.count())
-        pagesize = 10 if in_page else count
+        pagesize = 20 if in_page else count
         pagination = Pagination(item_query, pagesize, page)
 
         item_id = request.GET.get("id", None)
@@ -114,13 +223,14 @@ class Bom(View):
                 id = item_query.first().id
             parent = Tree_Model.objects.get(id=id)
             pagination = Pagination(item_query, request.pagesizes, page)
-            current_time = timezone.now()
-            items = Tree_Model.objects._mptt_filter(parent__id=id, effective_end__gte=current_time)
+            items = Tree_Model.objects.filter(parent__id=id, effective_end__gte=timezone.now())
             for i in items:
                 adict = {}
                 adict["id"] = i.id
-                adict["child"] = i.name
+                adict["item"] = i.name
+                adict["item_nr"] = i.nr
                 adict["parent"] = parent.name
+                adict["parent_nr"] = parent.nr
                 adict["effective_start"] = i.effective_start
                 adict["effective_end"] = i.effective_end
                 adict["qty"] = i.qty
@@ -128,6 +238,7 @@ class Bom(View):
             content = {
                 "id": id,
                 "parent": parent.name,
+                "parent_nr": parent.nr,
                 "pg": pagination,
                 "nodes": pagination.get_objs(),
                 "data": data,
@@ -136,7 +247,8 @@ class Bom(View):
                                                                                                None) else "",
                 "select_op": select_op,
                 "select_field": self.select_field,
-                "perm": request.perm
+                "perm": request.perm,
+                "error": ""
             }
         else:
             content = {
@@ -150,7 +262,8 @@ class Bom(View):
                                                                                                None) else "",
                 "select_op": select_op,
                 "select_field": self.select_field,
-                "perm": request.perm
+                "perm": request.perm,
+                "error": ""
             }
         return content
 
@@ -158,11 +271,13 @@ class Bom(View):
 class BomAdd(View):
     def get(self, request, *args, **kwargs):
         parent = request.GET.get("name", None)
+        parent_nr = request.GET.get("nr", None)
         parent_id = request.GET.get("id", None)
         items = GetBom.get_bom(parent_id, parent)
         content = {
             "parent_id": parent_id,
             "parent": parent,
+            "parent_nr": parent_nr,
             "items": items,
             "perm": request.perm
         }
@@ -172,8 +287,10 @@ class BomAdd(View):
         form = BomForm(request.POST)
         form_get = request.POST.dict()
         parent_id = form_get["parent_id"]
+        parent_nr = form_get["parent_nr"]
         parent = form_get["parent"]
         item = form_get["item"]
+        item_nr = form_get["item_nr"]
         # 生效开始和生效结束可能为空
         effective_start = form_get["effective_start"] if form_get["effective_start"] else datetime(datetime.now().year,
                                                                                                    datetime.now().month,
@@ -183,24 +300,60 @@ class BomAdd(View):
         content = {
             "parent_id": parent_id,
             "parent": parent,
+            "parent_nr": parent_nr,
             "items": GetBom.get_bom(parent_id, parent),
             "item": item,
+            "item_nr": item_nr,
             "effective_start": effective_start,
             "effective_end": effective_end,
             "qty": qty,
             "error": ""
         }
         if form.is_valid():
+            if Tree_Model.objects.filter(nr=item_nr):
+                content["error"] = "组成物料代码已存在，请重新输入"
+                return TemplateResponse(request, "bom_add.html", content)
             with transaction.atomic(savepoint=False):
                 try:
-                    Tree_Model.objects.filter(parent__name=item).first()
-                    Tree_Model.objects.create(name=item, parent_id=parent_id, effective_start=effective_start,
-                                              effective_end=effective_end, qty=qty)
+                    child = Tree_Model.objects.filter(name=item, effective_end__gte=timezone.now()).first()
 
+                    # 如在W节点下面添加Q，查询所有的W，然后全部添加Q
+                    # 查询所有的parent
+                    parent_nodes = Tree_Model.objects.filter(name=parent)
 
+                    # 创建(批量创建会报错)
+
+                    # create_list = []
+                    # for i in parent_nodes:
+                    #     create_node = Tree_Model(name=item, parent=i, effective_start=effective_start,
+                    #                              effective_end=effective_end, qty=qty)
+                    #     create_list.append(create_node)
+                    #
+                    # create_nodes = Tree_Model.objects.bulk_create(create_list)
+
+                    create_list = []
+                    for i in parent_nodes:
+                        create_nodes = Tree_Model.objects.create(name=item, parent=i, effective_start=effective_start,
+                                                                 effective_end=effective_end, qty=qty)
+                        create_list.append(create_nodes)
+
+                    def get_child(item, parent_node):
+                        level = item.level
+                        for i in item.get_children().filter(effective_end__gte=timezone.now()):
+                            nr = i.name + "-" + item_nr + "-" + str(level)
+                            Tree_Model.objects.create(name=i.name, nr=nr, parent=parent_node,
+                                                      effective_start=i.effective_start,
+                                                      effective_end=i.effective_end, qty=i.qty)
+                            level = get_child(i, item)
+                        return level
+
+                    if child:
+                        for i in create_list:
+                            get_child(child, i)
 
                 except Exception as e:
                     print(e)
+                    traceback.print_exc()
                     content["error"] = e
                     return TemplateResponse(request, "bom_add.html", content)
                 else:
@@ -278,7 +431,6 @@ class BomCalculate(View):
         else:
             # 下载Excel
             data = self._get_data(request)
-            print(data)
             wb = Workbook(write_only=True)
             title = "bom计算"
             ws1 = wb.create_sheet("采购物料")
@@ -351,32 +503,38 @@ class BomCalculate(View):
         id = request.GET.get("id", None)
         number = int(request.GET.get("qty", None))
         item = Tree_Model.objects.get(id=id)
+
         # 计算采购物料的qty
         purchase_list = []
         manufacture_list = []
-        purchase = item.get_leafnodes()
-        child = item.get_descendants()
+        purchase = item.get_leafnodes().filter(effective_end__gte=timezone.now())
+        child = item.get_descendants().filter(effective_end__gte=timezone.now())
 
         if list(purchase) == list(child):
             for i in purchase:
                 adict = {}
-                adict["qty"] = i.qty * number
+                adict["qty"] = i.qty * number * item.qty
                 adict["name"] = i.name
                 purchase_list.append(adict)
 
         else:
-            # 制造物料的qty
-            for i in child:
-                adict = {}
-                adict["qty"] = i.qty * number
-                adict["name"] = i.name
-                manufacture_list.append(adict)
+            def get_qty(item, qty):
+                qty_child = qty
+                for i in item.get_children().filter(effective_end__gte=timezone.now()):
+                    qty_math = i.qty * qty
+                    adict = {"name": i.name, "qty": qty_math}
+                    if i.is_leaf_node():
+                        purchase_list.append(adict)
+                        qty_child = get_qty(i, qty_math)
+                    else:
+                        manufacture_list.append(adict)
+                        qty_child = get_qty(i, qty_math)
 
-            for i in purchase:
-                adict = {}
-                adict["qty"] = i.qty * number
-                adict["name"] = i.name
-                purchase_list.append(adict)
+                return qty_child
+
+            get_qty(item, item.qty * number)
+            print(purchase_list)
+            print(manufacture_list)
 
         content = {
             "id": id,
@@ -386,3 +544,72 @@ class BomCalculate(View):
             "manufacture": manufacture_list
         }
         return content
+
+
+class BomDelete(View):
+    def get(self, request, *args, **kwargs):
+        id = request.GET.get("id", None)
+        if id:
+            try:
+                item = Tree_Model.objects.get(id=id)
+            except:
+                return HttpResponseRedirect("/bom/?msg=找不到此数据")
+            else:
+                content = {
+                    "id": id,
+                    "item": item.name,
+                    "parent": item.parent.name if item.parent else "",
+                    "effective_start": datetime.strftime(item.effective_start, "%Y-%m-%d"),
+                    "effective_end": datetime.strftime(item.effective_start, "%Y-%m-%d"),
+                    "qty": item.qty
+                }
+                return TemplateResponse(request, "bom_delete.html", content)
+        else:
+            return HttpResponseRedirect("/bom?msg=找不到数据")
+
+    def post(self, request, *args, **kwargs):
+        id = request.POST['id']
+        parent = request.POST['parent']
+        item = request.POST['item']
+        effective_start = request.POST['effective_start']
+        effective_end = request.POST['effective_end']
+        qty = request.POST["qty"]
+
+        content = {
+            "id": id,
+            "item": item,
+            "parent": parent,
+            "effective_start": effective_start,
+            "effective_end": effective_end,
+            "qty": qty,
+            "perm": request.perm,
+        }
+
+        with transaction.atomic(savepoint=False):
+            # 创建保存点
+            try:
+                item_node = Tree_Model.objects.get(id=id)
+                # 判断当前删除的节点是否为根节点，如果为根节点直接删除当前节点
+                if not item_node.is_root_node():
+                    nodes = Tree_Model.objects.filter(name=item)
+                    root = False
+                    # 当前节点不是根节点，但是存在是根节点的关系，删除当前节点
+                    for i in nodes:
+                        if i.is_root_node():
+                            root = True
+                            break
+                    if root:
+                        item_node.delete()
+                    # 当前节点不存在是根节点的情况，删除所有
+                    else:
+                        nodes.delete()
+                else:
+                    item_node.delete()
+
+            except Exception as e:
+                traceback.print_exc()
+                content["error"] = "删除失败"
+                return TemplateResponse(request, "bom_delete.html", content)
+
+            else:
+                return HttpResponseRedirect('/bom/')
