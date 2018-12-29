@@ -50,3 +50,6 @@ class RoleForm(forms.Form):
 class RoleAddForm(forms.Form):
     name = forms.CharField()
 
+
+class Just(forms.Form):
+    nr = forms.CharField()

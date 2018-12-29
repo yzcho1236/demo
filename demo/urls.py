@@ -15,6 +15,7 @@ Including another URLconf
 """
 from django.conf.urls import url, include
 from . import views
+from django.contrib import admin
 urlpatterns = [
     url(r'^$', views.WelcomePage.as_view(), name='register'),
     url(r'^register/$', views.Register.as_view(), name='register'),
@@ -46,5 +47,8 @@ urlpatterns = [
 
     url(r'^item/detail/$', views.ItemDetail.as_view(), name='item_detail'),
     url(r'^', include('input.urls')),
+    url(r'^admin/', admin.site.urls),
 ]
+
+
 

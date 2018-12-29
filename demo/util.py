@@ -86,7 +86,8 @@ class GetBom(object):
             alist_id.append(i.id)
             alist_name.append(i.name)
         boms = Tree_Model.objects.all().exclude(Q(name__in=alist_name) | Q(id__in=alist_id)).values_list("name",
-                                                                                                         flat=True).distinct()
+                                                                                                         flat=True).\
+            order_by("name").distinct("name")
         return boms
 
 

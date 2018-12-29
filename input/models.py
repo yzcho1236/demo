@@ -202,7 +202,7 @@ class Item(models.Model):
 
 class Tree_Model(MPTTModel):
     id = models.AutoField(primary_key=True)
-    nr = models.CharField(max_length=300, verbose_name="代码", null=True, blank=True)
+    nr = models.CharField(max_length=300, verbose_name="代码", unique=True)
     name = models.CharField(max_length=300, verbose_name="名称")
     barcode = models.CharField(max_length=300, verbose_name="条码", null=True, blank=True)
     unit = models.CharField(max_length=300, verbose_name="单位", null=True, blank=True)
@@ -214,7 +214,7 @@ class Tree_Model(MPTTModel):
     parent = TreeForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='children')
 
     def __str__(self):
-        return self.id
+        return self.name
 
     class MPTTMeta:
         unique_together = (('name', 'parent', 'qty', 'effective_start', 'effective_end'),)

@@ -1,20 +1,20 @@
 import traceback
 import urllib
 from io import BytesIO
+
+from django.contrib import auth
 from django.contrib.auth import authenticate, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.mixins import LoginRequiredMixin
-import json
 from django.db import transaction
 from django.db.models import AutoField, NOT_PROVIDED
 from django.http import HttpResponse, HttpResponseRedirect
+from django.template.response import TemplateResponse
 from django.utils.decorators import method_decorator
 from django.utils.encoding import force_str
 from django.views import View
-from django.contrib import auth
-from django.template.response import TemplateResponse
 from openpyxl import Workbook, load_workbook
 from openpyxl.cell import WriteOnlyCell
+
 from demo.form import UserForm, ItemForm, ItemAddForm, RoleForm, RoleAddForm, \
     UserPwdForm, UserEditForm, RegisterForm
 from demo.util import Pagination, perm_required, select_op, GetItemParent, GetQueryData
@@ -175,6 +175,7 @@ class ItemView(View):
     @method_decorator(perm_required(("add_item",)))
     def post(self, request, *args, **kwargs):
         """上传Excel"""
+        data = self._get_data(request)
         if request.FILES and len(request.FILES) == 1:
             count = 0
             for filename, file in request.FILES.items():
@@ -303,11 +304,9 @@ class ItemView(View):
                                     data["error"] = "数据已存在，无法上传"
                                     return TemplateResponse(request, "item.html", data)
 
-                data = self._get_data(request)
                 return TemplateResponse(request, "item.html", data)
 
         else:
-            data = self._get_data(request)
             data["error"] = "没有上传文件"
             return TemplateResponse(request, "item.html", data)
 
@@ -334,15 +333,15 @@ class ItemView(View):
             }
             content.append(data)
         all_data = {
-                    "data": content, "pg": pagination,
-                    "perm": request.perm, "query": fs,
-                    'query_url': query_url, "select_field": self.select_field,
-                    "select_op": select_op, "error": ""}
+            "data": content, "pg": pagination,
+            "perm": request.perm, "query": fs,
+            'query_url': query_url, "select_field": self.select_field,
+            "select_op": select_op, "error": ""}
 
         return all_data
 
 
-class ItemEdit(LoginRequiredMixin, View):
+class ItemEdit(View):
     permission_required = "change_item"
 
     def get(self, request, *args, **kwargs):
@@ -423,7 +422,7 @@ class ItemEdit(LoginRequiredMixin, View):
             return TemplateResponse(request, "item_edit.html", {"data": data, "perm": request.perm, "error": "表单填写错误"})
 
 
-class ItemDelete(LoginRequiredMixin, View):
+class ItemDelete(View):
     permission_required = "delete_item"
 
     def get(self, request, *args, **kwargs):
@@ -471,7 +470,7 @@ class ItemDelete(LoginRequiredMixin, View):
                 return HttpResponseRedirect('/item/')
 
 
-class ItemAdd(LoginRequiredMixin, View):
+class ItemAdd(View):
     permission_required = "add_item"
 
     def get(self, request, *args, **kwargs):
@@ -524,7 +523,7 @@ class ItemAdd(LoginRequiredMixin, View):
             return TemplateResponse(request, "item_add.html", {"data": data, "error": "表单错误"})
 
 
-class UserView(LoginRequiredMixin, View):
+class UserView(View):
     permission_required = "view_user"
 
     def get(self, request, *args, **kwargs):
@@ -549,7 +548,7 @@ class UserView(LoginRequiredMixin, View):
         return TemplateResponse(request, "user.html", all_data)
 
 
-class UserEditInfo(LoginRequiredMixin, View):
+class UserEditInfo(View):
     permission_required = "change_user"
 
     def get(self, request, *args, **kwargs):
@@ -603,7 +602,7 @@ class UserEditInfo(LoginRequiredMixin, View):
             return TemplateResponse(request, "user_edit.html", data)
 
 
-class UserEditPwd(LoginRequiredMixin, View):
+class UserEditPwd(View):
     permission_required = "change_user"
 
     def get(self, request, *args, **kwargs):
@@ -662,7 +661,7 @@ class UserEditPwd(LoginRequiredMixin, View):
             return TemplateResponse(request, "user_edit_password.html", data)
 
 
-class UserDelete(LoginRequiredMixin, View):
+class UserDelete(View):
     permission_required = "delete_user"
 
     def get(self, request, *args, **kwargs):
@@ -705,7 +704,7 @@ class UserDelete(LoginRequiredMixin, View):
                 return HttpResponseRedirect('/user/')
 
 
-class RoleView(LoginRequiredMixin, View):
+class RoleView(View):
     permission_required = "view_role"
 
     def get(self, request, *args, **kwargs):
@@ -730,7 +729,7 @@ class RoleView(LoginRequiredMixin, View):
         return TemplateResponse(request, "role.html", all_data)
 
 
-class RoleEdit(LoginRequiredMixin, View):
+class RoleEdit(View):
     permission_required = "change_role"
 
     def get(self, request, *args, **kwargs):
@@ -774,7 +773,7 @@ class RoleEdit(LoginRequiredMixin, View):
             return TemplateResponse(request, "role_edit.html", {"data": data, "error": "表单填写错误"})
 
 
-class RoleAdd(LoginRequiredMixin, View):
+class RoleAdd(View):
     permission_required = "add_role"
 
     def get(self, request, *args, **kwargs):
@@ -809,7 +808,7 @@ class RoleAdd(LoginRequiredMixin, View):
             return HttpResponseRedirect("/role/?msg=用户没有添加角色的权限")
 
 
-class RoleDelete(LoginRequiredMixin, View):
+class RoleDelete(View):
     permission_required = "delete_role"
 
     def get(self, request, *args, **kwargs):
@@ -848,7 +847,7 @@ class RoleDelete(LoginRequiredMixin, View):
                 return HttpResponseRedirect('/role/')
 
 
-class PermissionView(LoginRequiredMixin, View):
+class PermissionView(View):
     """权限"""
     permission_required = "view_perm"
 
@@ -873,7 +872,7 @@ class PermissionView(LoginRequiredMixin, View):
         return TemplateResponse(request, "permission.html", all_data)
 
 
-class UserRoleView(LoginRequiredMixin, View):
+class UserRoleView(View):
     """用户角色"""
 
     permission_required = "view_user_role"
@@ -914,7 +913,7 @@ class UserRoleView(LoginRequiredMixin, View):
         return TemplateResponse(request, "user_role.html", content)
 
 
-class UserRoleEdit(LoginRequiredMixin, View):
+class UserRoleEdit(View):
     permission_required = "change_user_role"
 
     def get(self, request, *args, **kwargs):
@@ -962,7 +961,7 @@ class UserRoleEdit(LoginRequiredMixin, View):
             return HttpResponseRedirect("/user_role/")
 
 
-class RolePermissionView(LoginRequiredMixin, View):
+class RolePermissionView(View):
     """角色权限"""
     permission_required = "view_role_permission"
 
@@ -1014,7 +1013,7 @@ class RolePermissionView(LoginRequiredMixin, View):
         return TemplateResponse(request, "role_permission.html", content)
 
 
-class RolePermissionEdit(LoginRequiredMixin, View):
+class RolePermissionEdit(View):
     """角色权限"""
 
     def get(self, request, *args, **kwargs):
@@ -1067,26 +1066,39 @@ class RolePermissionEdit(LoginRequiredMixin, View):
 class ItemDetail(View):
     def get(self, request, *args, **kwargs):
         Item.rebuild_item()
-        # # 查找所有根节点
-        # parent_items = Item.objects.filter(parent=None).order_by("id")
-        # item_child = []
-        # # 查找所有根节点的子节点
-        # for i in parent_items:
-        #     child = Item.objects.filter(lft__gt=i.lft, rght__lt=i.rght).values("nr", "unit", "effective_start",
-        #                                                                        "effective_end", "qty", "parent__nr")
-        #     item_child.extend(list(child))
+        # TODO 递归方法求出所有节点及其节点子类
+        nodes = Item.objects.filter(parent=None)
 
-        # data = {
-        #     "data": item_child
-        # }
+        def get_deep_tree(parents):
 
-        data = [
-            {"id": 1,
-             "text": "item1",
-             "nodes": [{
-                 "id": 2,
-                 "text": "item1-1"}]}
-        ]
-        data = json.dumps(data)
+            display_tree = []
+            # 所有父节点
+            for p in parents:
+                node = TreeNode()
+                node.id = p.id
+                node.text = p.name
+                children = Item.objects.filter(parent=p)
+                if len(children) > 0:
+                    node.nodes = get_deep_tree(children)
+                display_tree.append(node.to_dict())
+            return display_tree
+
+        data = get_deep_tree(nodes)
 
         return TemplateResponse(request, "item_detail.html", {"data": data})
+
+
+class TreeNode(object):
+    def __init__(self):
+        self.id = 0
+        self.text = "Node 1"
+        self.nodes = []
+        self.tags = "hello"
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'text': self.text,
+            'nodes': self.nodes,
+            'tags': self.tags
+        }

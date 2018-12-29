@@ -22,7 +22,7 @@ class Bom(View):
     select_field = {"id": "id", 'parent__name': '物料', "parent__nr": '物料代码', 'name': '组成物料', 'nr': '组成物料代码',
                     'effective_start': '生效开始',
                     'effective_end': '生效结束'}
-    uploader_header = {"id": "id", "物料": "parent", "物料代码": "parent_nr", "组成物料": "name", "代码": "nr",
+    uploader_header = {"id": "id", "物料": "parent", "物料代码": "parent_nr", "组成物料": "name", "组成物料代码": "nr",
                        "生效开始": "effective_start", "生效结束": "effective_end",
                        "数量": "qty"}
 
@@ -82,6 +82,7 @@ class Bom(View):
 
     def post(self, request, *args, **kwargs):
         """上传Excel"""
+
         data = self._get_data(request)
         if request.FILES and len(request.FILES) == 1:
             count = 0
@@ -102,8 +103,9 @@ class Bom(View):
                     headers_index = {}
                     # Excel传入的字段和模型类字段的对应关系
                     headers_field_name = {}
-
+                    excel_level = 0
                     for row in sheet.iter_rows():
+                        excel_level += 1
                         row_count += 1
                         if row_number == 1:
                             row_number += 1
@@ -135,74 +137,133 @@ class Bom(View):
                                     required_fields.add(i.name)
                             aset = {"level", "rght", "tree_id", "lft"}
                             required_fields = required_fields.difference(aset)
+                            required_fields.update(["parent", "parent_nr"])
                             set_header = set(upload_fields)
                             common_fields = set_header.intersection(required_fields)
                             if common_fields != required_fields:
                                 data["error"] = "上传字段不全，请重新上传"
                                 return TemplateResponse(request, "bom.html", data)
+                            adict = {}
+                            for k, v in headers_index.items():
+                                value = values[v]
+                                field_name = headers_field_name[k]
+                                if field_name == "name":
+                                    adict["name"] = value
+                                if field_name == "nr":
+                                    adict["nr"] = value
+                                if field_name == "qty":
+                                    adict["qty"] = value
+                                if field_name == "effective_start":
+                                    adict["effective_start"] = value if value else datetime(datetime.now().year,
+                                                                                            datetime.now().month,
+                                                                                            datetime.now().day)
+                                if field_name == "effective_end":
+                                    adict["effective_end"] = value if value else datetime(2030, 12, 31)
 
-                            # 数据库中没有name时进行创建
-                            if values[headers_index["组成物料"]]:
-                                item = Tree_Model.objects.filter(name=values[headers_index["组成物料"]])
-                                if not item:
-                                    adict = {}
-                                    for k, v in headers_index.items():
-                                        value = values[v]
-                                        field_name = headers_field_name[k]
-                                        if field_name == "name":
-                                            adict["name"] = value
-                                        if field_name == "qty":
-                                            adict["qty"] = value
-                                        if field_name == "effective_start":
-                                            adict["effective_start"] = value if value else datetime(datetime.now().year,
-                                                                                                    datetime.now().month,
-                                                                                                    datetime.now().day)
-                                        if field_name == "effective_end":
-                                            adict["effective_end"] = value if value else datetime(2030, 12, 31)
+                                if field_name == "parent":
+                                    adict["parent"] = value
+                                if field_name == "parent_nr":
+                                    adict["parent_nr"] = value
 
-                                        if field_name == "parent":
-                                            if value:
-                                                parent_all = Tree_Model.objects.filter(name=value)
-                                                if parent_all:
-                                                    adict["parent"] = parent_all
-                                                else:
-                                                    data["error"] = "物料数据不存在"
-                                                    return TemplateResponse(request, "bom.html", data)
-                                            else:
-                                                adict["parent"] = value
-                                    for k, v in adict.items():
-                                        if k in ["name", "qty"] and v is None:
-                                            data["error"] = "%s 字段值不能为空" % k
-                                            return TemplateResponse(request, "bom.html", data)
-                                    # TODO 数据创建有问题
-                                    try:
-                                        if adict.get("parent", None):
-                                            Tree_Model.objects.bulk_create(name=adict["name"],
-                                                                           parent__name=adict["parent"],
-                                                                           qty=adict["qty"],
-                                                                           effective_start=adict["effective_start"],
-                                                                           effective_end=adict["effective_end"])
-                                        else:
-                                            Tree_Model.objects.create(name=adict["name"], qty=adict["qty"],
-                                                                      effective_start=adict["effective_start"],
-                                                                      effective_end=adict["effective_end"])
-                                    except Exception as e:
-                                        print(e)
-                                        data["error"] = "上传创建失败"
+                            for k, v in adict.items():
+                                if k in ["name", "qty", "nr"] and v is None:
+                                    data["error"] = "%s 字段值不能为空" % k
+                                    return TemplateResponse(request, "bom.html", data)
+
+                            if adict["name"] and adict["nr"]:
+                                item_node = Tree_Model.objects.filter(name=adict["name"], nr=adict["nr"])
+                                if item_node:
+                                    item_node = item_node.first()
+                                    alist = list(filter(lambda x: x, [adict["parent_nr"], adict["parent"]]))
+                                    if len(alist) == 1:
+                                        data["error"] = "第 %s 行请填写完整的物料和物料代码" % excel_level
                                         return TemplateResponse(request, "bom.html", data)
+                                    elif len(alist) == 2:
+                                        parent_node = Tree_Model.objects.filter(name=adict["parent"],
+                                                                                nr=adict["parent_nr"])
+                                        item_parent_node = Tree_Model.objects.filter(name=adict["name"],
+                                                                                     nr=adict["nr"],
+                                                                                     parent__nr=adict["parent_nr"],
+                                                                                     parent__name=adict["parent"])
+                                        excel_node = Tree_Model.objects.filter(name=adict["name"],
+                                                                               parent__nr=adict["parent_nr"],
+                                                                               parent__name=adict["parent"])
+                                        if not parent_node:
+                                            data["error"] = "第 %s 行信息填写错误" % excel_level
+                                            return TemplateResponse(request, "bom.html", data)
+                                        else:
+                                            # 如果物料信息匹配正确，更新
+                                            if item_parent_node:
+                                                item_node.effective_start = adict["effective_start"]
+                                                item_node.effective_end = adict["effective_end"]
+                                                item_node.qty = adict["qty"]
+                                                item_node.save()
+                                            # 如果没有item_parent_node 添加
+                                            elif not item_parent_node and not excel_node:
+                                                with transaction.atomic(savepoint=False):
+                                                    try:
+
+                                                        parent_nodes = Tree_Model.objects.filter(name=adict["parent"])
+                                                        create_list = []
+                                                        for i in parent_nodes:
+                                                            # TODO 创建时没有nr值
+                                                            nr = i.name + "-" + adict["nr"] + "-" + str(i.level)
+                                                            create_nodes = Tree_Model.objects.create(name=adict["name"],
+                                                                                                     parent=i, nr=nr,
+                                                                                                     effective_start=
+                                                                                                     adict[
+                                                                                                         "effective_start"],
+                                                                                                     effective_end=
+                                                                                                     adict[
+                                                                                                         "effective_end"],
+                                                                                                     qty=adict["qty"])
+                                                            create_list.append(create_nodes)
+
+                                                        def get_child(item, parent_node):
+                                                            level = item.level
+                                                            for i in item.get_children().filter(
+                                                                    effective_end__gte=timezone.now()):
+                                                                nr = i.name + "-" + adict["nr"] + "-" + str(level)
+                                                                Tree_Model.objects.create(name=i.name, nr=nr,
+                                                                                          parent=parent_node,
+                                                                                          effective_start=i.effective_start,
+                                                                                          effective_end=i.effective_end,
+                                                                                          qty=i.qty)
+                                                                level = get_child(i, item)
+                                                            return level
+
+                                                        for i in create_list:
+                                                            get_child(item_node, i)
+
+                                                    except Exception as e:
+                                                        print(e)
+                                                        traceback.print_exc()
+                                                        data["error"] = e
+                                                        return TemplateResponse(request, "bom.html", data)
+                                            elif not item_parent_node and excel_node:
+                                                data["error"] = "第 %s 行填写正确的物料名称、代码信息" % excel_level
+                                                return TemplateResponse(request, "bom.html", data)
+
+                                    # 如果没有父类信息，更新
+                                    elif len(alist) == 0:
+                                        if not item_node:
+                                            data["error"] = "第 %s 行组成物料不存在" % excel_level
+                                            return TemplateResponse(request, "bom.html", data)
+                                        else:
+                                            item_node.effective_start = adict["effective_start"]
+                                            item_node.effective_end = adict["effective_end"]
+                                            item_node.qty = adict["qty"]
+
                             else:
-                                pass
-
-                                # 有name进行更新或者创建
-
-
-
+                                data["error"] = "第 %s 行请填写完整的组成物料信息，包含名称、代码" % excel_level
+                                return TemplateResponse(request, "bom.html", data)
+                query_url = request.session["bom_query_url"]
+                return HttpResponseRedirect("/bom/?page=1" + query_url)
         else:
-            data["error"] = "没有上传文件"
-            return TemplateResponse(request, "item.html", data)
+            data["error"] = "没有上传的文件"
+            return TemplateResponse(request, "bom.html", data)
 
     def _get_data(self, request, in_page=True, *args, **kwargs):
-
         # 获取到的页面数
         page = request.GET.get("page", 1)
         query_data = dict(request.GET.lists())
@@ -333,7 +394,10 @@ class BomAdd(View):
 
                     create_list = []
                     for i in parent_nodes:
-                        create_nodes = Tree_Model.objects.create(name=item, parent=i, effective_start=effective_start,
+                        # TODO 创建时没有nr值
+                        nr = i.name + "-" + item_nr + "-" + str(i.level)
+                        create_nodes = Tree_Model.objects.create(name=item, parent=i, nr=nr,
+                                                                 effective_start=effective_start,
                                                                  effective_end=effective_end, qty=qty)
                         create_list.append(create_nodes)
 
@@ -385,7 +449,6 @@ class BomEdit(View):
         # 获取表单数据
         id = request.POST['id']
         name = request.POST['name']
-        start = request.POST["effective_start"]
         effective_start = request.POST["effective_start"] if request.POST["effective_start"] else datetime(
             datetime.now().year,
             datetime.now().month,
