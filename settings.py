@@ -36,9 +36,9 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'my_app',
     'demo',
     "input",
+    "my_app",
     "mptt",
 ]
 
@@ -190,15 +190,6 @@ LOGGING = {
             'filters': ['require_debug_false'],
             'class': 'django.utils.log.AdminEmailHandler',
         },
-        # 'file_handler': {
-        #      'level': 'DEBUG',
-        #      'class': 'logging.handlers.RotatingFileHandler',
-        #      # 'class': 'freppledb.common.logging.MakeFileHandler',
-        #     'filename': os.path.normpath(os.path.join(FREPPLE_LOGDIR, 'frepple.log')),
-        #      'formatter': 'file',
-        #      'maxBytes': 1024 * 1024 * 150,  # 150MB
-        #      'backupCount': 10,
-        # },
     },
     'loggers': {
         # A handler to log all SQL queries.

@@ -271,7 +271,7 @@ class Bom(View):
         if search:
             request.session["bom_query_url"] = query_url
         count = float(item_query.count())
-        pagesize = 20 if in_page else count
+        pagesize = request.pagesizes if in_page else count
         pagination = Pagination(item_query, pagesize, page)
 
         item_id = request.GET.get("id", None)

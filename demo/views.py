@@ -17,7 +17,7 @@ from openpyxl.cell import WriteOnlyCell
 
 from demo.form import UserForm, ItemForm, ItemAddForm, RoleForm, RoleAddForm, \
     UserPwdForm, UserEditForm, RegisterForm
-from demo.util import Pagination, perm_required, select_op, GetItemParent, GetQueryData
+from demo.util import Pagination, perm_required, select_op, GetQueryData
 from input.models import Role, User, UserRole, RolePermission, Item, Perm
 
 
@@ -127,8 +127,8 @@ def index(request):
 
 class ItemView(View):
     """查看物料列表"""
-    file_headers = ('id', '代码', '名称', '条码', "父类")
-    select_field = {'id': 'id', 'nr': '代码', 'name': '名称', 'barcode': '条码', 'parent': '父类'}
+    file_headers = ('id', '代码', '名称', '条码')
+    select_field = {'id': 'id', 'nr': '代码', 'name': '名称', 'barcode': '条码'}
 
     @method_decorator(login_required)
     @method_decorator(perm_required(("view_item",)))
@@ -328,8 +328,7 @@ class ItemView(View):
                 "id": i.id,
                 "nr": i.nr,
                 "name": i.name,
-                "barcode": i.barcode,
-                "parent": i.parent,
+                "barcode": i.barcode
             }
             content.append(data)
         all_data = {
@@ -355,12 +354,6 @@ class ItemEdit(View):
                 "nr": item.nr,
                 "name": item.name,
                 "barcode": item.barcode,
-                "parent": item.parent,
-                "item_all": GetItemParent.get_parent(),
-                "effective_start": item.effective_start,
-                "effective_end": item.effective_end,
-                "unit": item.unit,
-                "qty": item.qty,
                 "perm": request.perm
             }
         except:
@@ -374,25 +367,11 @@ class ItemEdit(View):
         nr = request.POST['nr']
         name = request.POST['name']
         barcode = request.POST['barcode']
-        if request.POST.get("parent", None):
-            parent = int(request.POST['parent'])
-        else:
-            parent = ""
-        effective_start = request.POST['effective_start']
-        effective_end = request.POST['effective_end']
-        unit = request.POST['unit']
-        qty = request.POST['qty']
         data = {
             "id": item_id,
             "nr": nr,
             "name": name,
             "barcode": barcode,
-            "parent": parent,
-            "item_all": GetItemParent.get_parent(),
-            "effective_start": effective_start,
-            "effective_end": effective_end,
-            "unit": unit,
-            "qty": qty,
             "perm": request.perm
         }
         if form.is_valid():
@@ -401,16 +380,9 @@ class ItemEdit(View):
                 # 创建保存点
                 try:
                     item = Item.objects.get(id=item_id)
-                    if parent:
-                        parent_item = Item.objects.get(id=parent)
-                        item.parent = parent_item
                     item.nr = nr
                     item.name = name
                     item.barcode = barcode
-                    item.effective_start = effective_start
-                    item.effective_end = effective_end
-                    item.unit = unit
-                    item.qty = qty
                     item.save()
                 except Exception as e:
                     print(e)
@@ -434,7 +406,6 @@ class ItemDelete(View):
                 "nr": item.nr,
                 "name": item.name,
                 "barcode": item.barcode,
-                "parent": item.parent,
                 "perm": request.perm
             }
         except Exception as e:
@@ -448,13 +419,11 @@ class ItemDelete(View):
         nr = request.POST['nr']
         name = request.POST['name']
         barcode = request.POST['barcode']
-        parent = request.POST['parent']
         data = {
             "id": item_id,
             "nr": nr,
             "name": name,
             "barcode": barcode,
-            "parent": parent,
         }
 
         with transaction.atomic(savepoint=False):
@@ -463,6 +432,7 @@ class ItemDelete(View):
                 item = Item.objects.get(id=item_id)
                 item.delete()
             except:
+                traceback.print_exc()
                 data["error"] = "删除失败"
                 return TemplateResponse(request, "item_delete.html", data)
 
@@ -475,45 +445,24 @@ class ItemAdd(View):
 
     def get(self, request, *args, **kwargs):
 
-        return TemplateResponse(request, "item_add.html",
-                                {"item_all": GetItemParent.get_parent(), "perm": request.perm})
+        return TemplateResponse(request, "item_add.html", {"perm": request.perm})
 
     def post(self, request, *args, **kwargs):
         form = ItemAddForm(request.POST)
         # 获取表单数据
-        # "nr", "unit", "effective_start", "effective_end", "qty"
         nr = request.POST['nr']
         name = request.POST['name']
         barcode = request.POST['barcode']
-        if request.POST.get("parent", None):
-            parent = int(request.POST['parent'])
-        else:
-            parent = ""
-        effective_start = request.POST['effective_start']
-        effective_end = request.POST['effective_end']
-        unit = request.POST['unit']
-        qty = request.POST['qty']
-
         data = {
             "nr": nr,
             "name": name,
             "barcode": barcode,
-            "parent": parent,
-            "item_all": GetItemParent.get_parent(),
-            "effective_start": effective_start,
-            "effective_end": effective_end,
-            "unit": unit,
-            "qty": qty,
-
         }
         if form.is_valid():
 
             with transaction.atomic(savepoint=False):
                 try:
-                    if parent:
-                        Item.objects.create(nr=nr, name=name, barcode=barcode, parent_id=parent)
-                    else:
-                        Item.objects.create(nr=nr, name=name, barcode=barcode)
+                    Item.objects.create(nr=nr, name=name, barcode=barcode)
                 except Exception as e:
                     print(e)
                     return TemplateResponse(request, "item_add.html", {"data": data, "error": "添加失败，物料代码已存在"})
@@ -984,15 +933,6 @@ class RolePermissionView(View):
         for i in all_perms:
             all_perm_dict[i["id"]] = i["codename"]
 
-        # for role in roles:
-        #     perms = RolePermission.objects.filter(role=role).values("permission__codename").order_by('id')
-        #     perms_list = [i["permission__codename"] for i in list(perms)]
-        #     user_role = {
-        #         "id": role.id,
-        #         "role": role.name,
-        #         "perm": perms_list,
-        #     }
-
         perms = list(RolePermission.objects.filter(role_id__in=[i.id for i in list(roles_query)]))
         for role in pagination.get_objs():
             perms_ids = list(map(lambda x: x.permission_id, filter(lambda i: i.role_id == role.id, perms)))
@@ -1077,6 +1017,7 @@ class ItemDetail(View):
                 node = TreeNode()
                 node.id = p.id
                 node.text = p.name
+                node.tags = [p.nr]
                 children = Item.objects.filter(parent=p)
                 if len(children) > 0:
                     node.nodes = get_deep_tree(children)
@@ -1090,15 +1031,17 @@ class ItemDetail(View):
 
 class TreeNode(object):
     def __init__(self):
-        self.id = 0
+        self.idj = 0
         self.text = "Node 1"
         self.nodes = []
-        self.tags = "hello"
+        self.tags = []
+        self.href = "/index/"
 
     def to_dict(self):
         return {
             'id': self.id,
             'text': self.text,
             'nodes': self.nodes,
-            'tags': self.tags
+            'tags': self.tags,
+            'href': self.href
         }

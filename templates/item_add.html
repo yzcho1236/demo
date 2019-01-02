@@ -11,25 +11,6 @@
   <input type="text" name="name" value="{{ data.name }}" id="name">
   <label for="barcode">barcode:</label>
   <input type="text" name="barcode" value="{{ data.barcode }}" id="barcode">
- <label for="parent">parent:</label>
-  <select name="parent" id="parent">
-  <option value=""> ----- </option>
-    {% for k,v in item_all.items %}
-        {% if parent == k %}
-        <option selected="selected" value="{{ k }}">{{ v }}</option>
-        {% endif %}
-        <option value="{{ k }}">{{ v }}</option>
-    {% endfor %}
-    </select>&nbsp;&nbsp;&nbsp;<br><br>
-     <label for="effective_start">effective_start:</label>
-  <input type="date" name="effective_start" value="{{ effective_start }}" id="effective_start">
-     <label for="effective_end">effective_end:</label>
-  <input type="date" name="effective_end" value="{{ effective_end }}" id="effective_end">
-     <label for="unit">unit:</label>
-  <input type="text" name="unit" value="{{ unit }}" id="unit">
-     <label for="qty">qty:</label>
-  <input type="text" name="qty" value="{{ qty }}" id="qty">
-
     <br>
     <span class="con">{{ error }}</span>
      <br>

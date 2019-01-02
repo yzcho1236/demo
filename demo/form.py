@@ -12,11 +12,6 @@ class ItemAddForm(forms.Form):
     nr = forms.CharField()
     name = forms.CharField()
     barcode = forms.CharField()
-    parent = forms.CharField(required=False)
-    effective_start = forms.DateField(required=False)
-    effective_end = forms.DateField(required=False)
-    unit = forms.CharField()
-    qty = forms.IntegerField()
 
 
 class UserForm(forms.Form):
@@ -49,7 +44,3 @@ class RoleForm(forms.Form):
 
 class RoleAddForm(forms.Form):
     name = forms.CharField()
-
-
-class Just(forms.Form):
-    nr = forms.CharField()

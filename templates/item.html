@@ -175,12 +175,12 @@
     <br>
     <br>
     <br>
+    {% if data %}
     <table>
         <tr>
             <th>代码</th>
             <th>名称</th>
             <th>条码</th>
-            <th>父类</th>
         </tr>
 
         {% for i in data %}
@@ -189,7 +189,6 @@
             <th><input value="{{ i.nr }}"></th>
             <th><input value="{{ i.name }}"></th>
             <th><input value="{{ i.barcode }}"></th>
-            <th><input value="{{ i.parent }}"></th>
             {% if "change_item" in perm %}
                 <th>
                     <a href="/item/edit/?item_id={{ i.id }}">
@@ -207,6 +206,7 @@
             {% endif %}
         {% endfor %}
     </table>
+    {% endif %}
     <br>
     <br>
     <br>

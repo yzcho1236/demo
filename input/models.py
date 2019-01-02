@@ -84,20 +84,13 @@ class Item(models.Model):
     nr = models.CharField(max_length=300, unique=True, verbose_name="代码")
     name = models.CharField(max_length=300, verbose_name="名称")
     barcode = models.CharField(max_length=300, verbose_name="条码")
-    unit = models.CharField(max_length=300, verbose_name="单位", null=True, blank=True)
-    qty = models.IntegerField(verbose_name="数量", null=True, blank=True)
-    effective_start = models.DateField(verbose_name="生效开始", null=True, blank=True,
-                                       default=datetime(datetime.now().year, datetime.now().month, datetime.now().day))
-    effective_end = models.DateField(verbose_name="生效结束", null=True, blank=True, default=datetime(2030, 12, 31))
-
     # 左节点
     lft = models.PositiveIntegerField(null=True, blank=True, verbose_name="左节点")
     # 右节点
     rght = models.PositiveIntegerField(null=True, blank=True, verbose_name="右节点")
     # 层级
     lvl = models.PositiveIntegerField(null=True, blank=True, verbose_name="层级")
-    parent = models.ForeignKey('self', null=True, blank=True, related_name='xchildren', on_delete=models.CASCADE,
-                               verbose_name="父类")
+
 
     def __str__(self):
         return self.nr
@@ -218,3 +211,4 @@ class Tree_Model(MPTTModel):
 
     class MPTTMeta:
         unique_together = (('name', 'parent', 'qty', 'effective_start', 'effective_end'),)
+

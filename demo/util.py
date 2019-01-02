@@ -9,6 +9,7 @@ from django.utils import timezone
 from django.http import HttpResponseRedirect
 from django.utils.encoding import smart_str
 from input.models import Item, Tree_Model
+from settings import DEFAULT_PAGESIZE
 
 
 def perm_required(perm, raise_exception=False):
@@ -41,8 +42,8 @@ def passes_test(test_func):
 
 
 class Pagination(object):
-    def __init__(self, queryset, pagesize=20, page=1):
-        self.pagesize = 20
+    def __init__(self, queryset, pagesize=DEFAULT_PAGESIZE, page=1):
+        self.pagesize = pagesize
         self.queryset = queryset
         self.count = float(self.queryset.count())
         self.total_pages = int(math.ceil(self.count / self.pagesize))
