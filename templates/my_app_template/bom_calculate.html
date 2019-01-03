@@ -4,7 +4,7 @@
 {% endblock %}
 {% block content %}
     <h3>bom计算</h3>
-    <a href="/bom/calculate/?id={{ id }}&qty={{ qty }}&format=spreadsheet" style="margin-left: 500px;">
+    <a href="/item/bom/calculate/?id={{ id }}&qty={{ qty }}&format=spreadsheet" style="margin-left: 500px;">
     <button> 下载 </button>
     </a>
     <br><br>
@@ -24,7 +24,7 @@
         </tr>
             {% for i in purchase %}
         <tr>
-            <th><input value="{{ i.name }}"></th>
+            <th><input value="{{ i.nr }}"></th>
             <th><input value="{{ i.qty }}"></th>
         </tr>
             {% endfor %}
@@ -39,7 +39,7 @@
     </tr>
         {% for i in manufacture %}
     <tr>
-            <th><input value="{{ i.name }}"></th>
+            <th><input value="{{ i.nr }}"></th>
             <th><input value="{{ i.qty }}"></th>
     </tr>
         {% endfor %}

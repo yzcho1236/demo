@@ -146,25 +146,33 @@ class ItemBom(View):
                             item = values[headers_index["物料"]]
                             parent = values[headers_index["父类"]]
                             qty = values[headers_index["数量"]]
-                            effective_start = values[headers_index["生效开始"]]
-                            effective_end = values[headers_index["生效结束"]]
+                            effective_start = values[headers_index["生效开始"]] if values[
+                                headers_index["生效开始"]] else datetime(datetime.now().year, datetime.now().month,
+                                                                     datetime.now().day)
+                            effective_end = values[headers_index["生效结束"]] if values[
+                                headers_index["生效结束"]] else datetime(2030, 12, 31)
+
+                            # 判断物料和父类是否相等
+                            if item == parent:
+                                data["error"] = "第 %s 行 物料和父类不能为同一个物料" % excel_level
+                                return TemplateResponse(request, "my_app_template/bom.html", data)
 
                             # 判断上传的字段值是否为空
                             upload_value = {"item": item, "qty": qty, "nr": nr}
                             for k, v in upload_value.items():
                                 if v is None:
-                                    data["error"] = "%s字段值不能为空" % k
+                                    data["error"] = "第 %s 行 %s字段值不能为空" % (excel_level, k)
                                     return TemplateResponse(request, "my_app_template/bom.html", data)
 
                             # 判断上传的物料代码和父类代码是否存在
                             try:
-                                Item.objects.get(nr=item)
+                                bom_item = Item.objects.get(nr=item)
                             except Item.DoesNotExist as e:
                                 traceback.print_exc()
                                 data["error"] = "第 %s 行物料为%s数据不存在" % (excel_level, item)
                                 return TemplateResponse(request, "my_app_template/bom.html", data)
                             try:
-                                Item.objects.get(nr=parent)
+                                bom_parent = Item.objects.get(nr=parent)
                             except Item.DoesNotExist as e:
                                 data["error"] = "第 %s 行父类为%s数据不存在" % (excel_level, parent)
                                 return TemplateResponse(request, "my_app_template/bom.html", data)
@@ -189,12 +197,12 @@ class ItemBom(View):
                                 else:
                                     try:
                                         if parent:
-                                            BomModel.objects.create(nr=nr, item__nr=item,
-                                                                    parent__nr=parent, qty=qty,
+                                            BomModel.objects.create(nr=nr, item=bom_item,
+                                                                    parent=bom_parent, qty=qty,
                                                                     effective_start=effective_start,
                                                                     effective_end=effective_end)
                                         else:
-                                            BomModel.objects.create(nr=nr, item__nr=item,
+                                            BomModel.objects.create(nr=nr, item=bom_item,
                                                                     qty=qty,
                                                                     effective_start=effective_start,
                                                                     effective_end=effective_end)
@@ -207,21 +215,23 @@ class ItemBom(View):
                             else:
                                 try:
                                     if parent:
-                                        BomModel.objects.create(nr=nr, item__nr=item,
-                                                                parent__nr=parent, qty=qty,
+                                        BomModel.objects.create(nr=nr, item=bom_item,
+                                                                parent=bom_parent, qty=qty,
                                                                 effective_start=effective_start,
                                                                 effective_end=effective_end)
                                     else:
-                                        BomModel.objects.create(nr=nr, item__nr=item,
+                                        BomModel.objects.create(nr=nr, item=bom_item,
                                                                 qty=qty,
                                                                 effective_start=effective_start,
                                                                 effective_end=effective_end)
                                 except Exception as e:
+                                    print(e)
+                                    traceback.print_exc()
                                     data = self._get_data(request)
                                     data["error"] = "数据已存在，无法上传"
                                     return TemplateResponse(request, "my_app_template/bom.html", data)
 
-                return TemplateResponse(request, "my_app_template/bom.html", data)
+                return HttpResponseRedirect("/item/bom/")
 
         else:
             data["error"] = "没有上传文件"
@@ -421,7 +431,7 @@ class ItemBomCalculate(View):
         fmt = request.GET.get('format', None)
         if fmt is None:
             content = self._get_data(request)
-            return TemplateResponse(request, "bom_calculate.html", content)
+            return TemplateResponse(request, "my_app_template/bom_calculate.html", content)
         else:
             # 下载Excel
             data = self._get_data(request)
@@ -437,7 +447,7 @@ class ItemBomCalculate(View):
             common_headers = ("物料", "物料数量")
             purchase_headers = ("采购物料", "数量")
             manufacture_headers = ("制造物料", "数量")
-            body_fields = ("name", "qty")
+            body_fields = ("nr", "qty")
 
             for i in common_headers:
                 cell = WriteOnlyCell(ws1, value=i)
@@ -496,46 +506,39 @@ class ItemBomCalculate(View):
     def _get_data(self, request, *args, **kwargs):
         id = request.GET.get("id", None)
         number = int(request.GET.get("qty", None))
-        bom = BomModel.objects.get(id=id)
-
+        bom_filter = BomModel.objects.filter(id=id)
+        if not bom_filter:
+            return HttpResponseRedirect("/item/bom/?msg=查询数据出错")
+        bom = bom_filter.first()
         # 计算采购物料的qty
         purchase_list = []
         manufacture_list = []
-        purchase = bom.get_leafnodes().filter(effective_end__gte=timezone.now())
-        child = bom.get_descendants().filter(effective_end__gte=timezone.now())
 
-        if list(purchase) == list(child):
-            for i in purchase:
-                adict = {}
-                adict["qty"] = i.qty * number * bom.qty
-                adict["name"] = i.name
-                purchase_list.append(adict)
+        def get_qty(bom, qty):
+            qty_child = qty
+            for i in BomModel.objects.filter(parent_id=bom.id, effective_end__gte=timezone.now()).order_by("id"):
+                qty_math = i.qty * qty
+                adict = {"nr": i.item.nr, "qty": qty_math}
+                node = BomModel.objects.filter(parent_id=i.id, effective_end__gte=timezone.now())
+                # 判断是否是叶子节点
+                if not node:
+                    purchase_list.append(adict)
+                    qty_child = get_qty(i, qty_math)
+                else:
+                    manufacture_list.append(adict)
+                    qty_child = get_qty(i, qty_math)
 
-        else:
-            def get_qty(item, qty):
-                qty_child = qty
-                for i in item.get_children().filter(effective_end__gte=timezone.now()):
-                    qty_math = i.qty * qty
-                    adict = {"name": i.name, "qty": qty_math}
-                    if i.is_leaf_node():
-                        purchase_list.append(adict)
-                        qty_child = get_qty(i, qty_math)
-                    else:
-                        manufacture_list.append(adict)
-                        qty_child = get_qty(i, qty_math)
+            return qty_child
 
-                return qty_child
-
-            get_qty(bom, bom.qty * number)
-            print(purchase_list)
-            print(manufacture_list)
+        get_qty(bom, bom.qty * number)
 
         content = {
             "id": id,
-            "item": bom.name,
+            "item": bom.item.nr,
             "qty": number,
             "purchase": purchase_list,
-            "manufacture": manufacture_list
+            "manufacture": manufacture_list,
+            "error": ""
         }
         return content
 

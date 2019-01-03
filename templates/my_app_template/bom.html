@@ -246,10 +246,11 @@
                     </div>
                     <div class="modal-body">
                         <div class="form-horizontal">
-                            <form action="/bom/calculate/?id={{ id }}&qty={{ qty }}" method="get" enctype="multipart/form-data">
-                                  <input type="text" name="id" value="{{ id }}" id="id" hidden>
+                            <form action="/item/bom/calculate/?id={{ parent.id }}&qty={{ qty }}" method="get"
+                                  enctype="multipart/form-data">
                                   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<label for="item">物料:</label>
                                   <input type="text" name="nr" value="{{ parent.nr }}" id="item" readonly>&nbsp;&nbsp;&nbsp;
+                                  <input type="text" name="id" value="{{ parent.id }}" id="id" hidden>&nbsp;&nbsp;&nbsp;
                                   <label for="qty">物料数量:</label>
                                   <input type="text" name="qty" value="" id="qty">&nbsp;&nbsp;&nbsp;
                                 <input type="submit" value="计算" class="btn btn-info"/>
