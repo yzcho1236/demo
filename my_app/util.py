@@ -88,7 +88,7 @@ class BomData(object):
         if q_filters:
             bom_query = obj.objects.all().filter(functools.reduce(operator.iand, q_filters))
         else:
-            bom_query = obj.objects.all().filter(parent=None, effective_end__gte=current_time).order_by("id")
+            bom_query = obj.objects.all().filter(effective_end__gte=current_time).order_by("id")
         # 根据查询的列表拼接URL
         array = []
         for i in fs:
@@ -104,8 +104,8 @@ class BomData(object):
             for p in parents:
                 node = TreeNode()
                 node.id = p.id
-                node.text = p.nr
-                node.tags = [p.nr]
+                node.text = p.item.nr
+                node.tags = [p.id]
                 node.query_url = query_url
                 children = BomModel.objects.filter(parent_id=p.id)
                 if len(children) > 0:
@@ -113,7 +113,11 @@ class BomData(object):
                 display_tree.append(node.to_dict())
             return display_tree
 
-        node_data = get_deep_tree(bom_query)
+        bom_root = bom_query.filter(parent=None)
+        if bom_root:
+            node_data = get_deep_tree(bom_root)
+        else:
+            node_data = get_deep_tree(bom_query)
 
         return bom_query, node_data, fs, query_url, search
 
@@ -133,5 +137,5 @@ class TreeNode(object):
             'text': self.text,
             'nodes': self.nodes,
             'tags': self.tags,
-            "href": "item/bom/?page=1?id=%s%s" % (self.id, self.query_url)
+            "href": "?page=1&id=%s%s" % (self.id, self.query_url)
         }

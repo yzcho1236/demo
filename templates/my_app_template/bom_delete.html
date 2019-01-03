@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}
+    用户删除
+{% endblock %}
+
+{% block content %}
+ <form action="/item/bom/delete/"  method="post">
+  <input type="text" name="id" value="{{ id }}" id="id" hidden>
+  <label for="item">物料:</label>
+  <input type="text" name="item" value="{{ item }}" id="item" readonly>
+  <label for="parent">父类:</label>
+  <input type="text" name="parent" value="{{ parent }}" id="parent" readonly>
+  <label for="nr">代码:</label>
+  <input type="text" name="nr" value="{{ nr }}" id="nr" readonly>
+  <label for="effective_start">生效开始:</label>
+  <input type="date" name="effective_start" value="{{ effective_start }}" id="effective_start" readonly>
+  <label for="effective_end">生效结束:</label>
+  <input type="date" name="effective_end" value="{{ effective_end }}" id="effective_end" readonly>
+  <label for="qty">数量:</label>
+  <input type="text" name="qty" value="{{ qty }}" id="qty" readonly>
+    <br>
+    <span class="con">{{ error }}</span>
+     <br>
+    <input type="submit" value="提交"/>
+ </form>
+    <a href="/bom/?page=1">
+    <button> 返回 </button>
+    </a>
+{% endblock %}
+

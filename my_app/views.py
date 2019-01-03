@@ -4,28 +4,228 @@ from datetime import datetime
 from io import BytesIO
 
 from django.db import transaction
+from django.db.models import NOT_PROVIDED, AutoField
 from django.http import HttpResponse, HttpResponseRedirect
 from django.template.response import TemplateResponse
 from django.utils import timezone
 from django.utils.encoding import force_str
 from django.views import View
-from openpyxl import Workbook
+from openpyxl import Workbook, load_workbook
 from openpyxl.cell import WriteOnlyCell
 
 from demo.util import Pagination, select_op
-from input.form import BomEditForm
-from input.models import Tree_Model
+from input.models import Item
 from my_app.form import ItemBomForm
 from my_app.models import BomModel
 from my_app.util import BomNr, BomData
 
 
 class ItemBom(View):
-    select_field = {"id": "id", 'parent__nr': '物料', 'nr': '组成物料代码', 'effective_start': '生效开始', 'effective_end': '生效结束'}
+    file_headers = ('id', '物料', '父类', '代码', '生效开始', "生效结束", "数量")
+    body_fields = ("id", "item", "parent", "nr", "effective_start", "effective_end", "qty")
+    select_field = {"id": "id", 'item__nr': '物料', 'parent__nr': '父类', 'nr': '代码', 'effective_start': '生效开始',
+                    'effective_end': '生效结束'}
 
     def get(self, request, *args, **kwargs):
-        content = self._get_data(request)
-        return TemplateResponse(request, "my_app_template/bom.html", content)
+        fmt = request.GET.get('format', None)
+        if fmt is None:
+            content = self._get_data(request)
+            return TemplateResponse(request, "my_app_template/bom.html", content)
+
+        elif fmt == 'spreadsheet':
+            # 下载 excel
+            json = self._get_data(request, in_page=False)
+            wb = Workbook(write_only=True)
+            title = "物料清单"
+            ws = wb.create_sheet(title)
+
+            headers = []
+            for h in self.file_headers:
+                cell = WriteOnlyCell(ws, value=h)
+                headers.append(cell)
+            ws.append(headers)
+
+            data = []
+            for i in json["bom_query"]:
+                adict = {}
+                adict["id"] = i.id
+                adict["item"] = i.item.nr
+                if i.parent:
+                    adict["parent"] = i.parent.nr
+                else:
+                    adict["parent"] = ""
+                adict["nr"] = i.nr
+                adict["effective_start"] = i.effective_start
+                adict["effective_end"] = i.effective_end
+                adict["qty"] = i.qty
+                data.append(adict)
+
+            for i in data:
+                body = []
+                for field in self.body_fields:
+                    if field in i:
+                        cell = WriteOnlyCell(ws, value=i[field])
+                        body.append(cell)
+                ws.append(body)
+            output = BytesIO()
+            wb.save(output)
+            response = HttpResponse(
+                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                content=output.getvalue()
+            )
+            response['Content-Disposition'] = "attachment; filename*=utf-8''%s.xlsx" % urllib.parse.quote(
+                force_str(title))
+            response['Cache-Control'] = "no-cache, no-store"
+            return response
+
+    def post(self, request, *args, **kwargs):
+        # 上传Excel
+        data = self._get_data(request)
+        if request.FILES and len(request.FILES) == 1:
+            count = 0
+            for filename, file in request.FILES.items():
+                if file.content_type == 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':
+                    count += 1
+            if count == 0:
+                data = self._get_data(request)
+                data["error"] = "没有上传文件"
+                return TemplateResponse(request, "item.html", data)
+            else:
+                for name, file in request.FILES.items():
+                    wb = load_workbook(filename=file, read_only=True, data_only=True)
+                    # 第一个sheet
+                    sheet = wb[wb.sheetnames[0]]
+                    row_count = 0
+                    row_number = 1
+                    # 对应表头是在第几列
+                    headers_index = {}
+                    # Excel传入的字段和模型类字段的对应关系
+                    headers_field_name = {}
+                    excel_level = 0
+                    for row in sheet.iter_rows():
+                        excel_level += 1
+                        row_count += 1
+                        if row_number == 1:
+                            row_number += 1
+                            # 获取excelheader
+                            _headers = [i.value for i in row]
+                            index = 0
+                            for h in _headers:
+                                for field in BomModel._meta.fields:
+                                    if h == field.verbose_name:
+                                        headers_index[h] = index
+                                        headers_field_name[h] = field.name
+                                index += 1
+                        # 取值
+                        else:
+                            values = [i.value for i in row]
+                            none_len = 0
+                            for v in values:
+                                if v is None:
+                                    none_len += 1
+
+                            if none_len == len(values):
+                                continue
+                            upload_fields = [v for k, v in headers_field_name.items()]
+
+                            # 必传字段
+                            required_fields = set()
+                            for i in BomModel._meta.fields:
+                                if not i.blank and i.default == NOT_PROVIDED and not isinstance(i, AutoField):
+                                    required_fields.add(i.name)
+                            set_header = set(upload_fields)
+
+                            set_header.discard("id")
+                            if set_header.intersection(required_fields) != required_fields:
+                                data = self._get_data(request)
+                                data["error"] = "上传字段不全，请重新上传"
+                                return TemplateResponse(request, "my_app_template/bom.html", data)
+
+                            id = values[headers_index["id"]]
+                            nr = values[headers_index["代码"]]
+                            item = values[headers_index["物料"]]
+                            parent = values[headers_index["父类"]]
+                            qty = values[headers_index["数量"]]
+                            effective_start = values[headers_index["生效开始"]]
+                            effective_end = values[headers_index["生效结束"]]
+
+                            # 判断上传的字段值是否为空
+                            upload_value = {"item": item, "qty": qty, "nr": nr}
+                            for k, v in upload_value.items():
+                                if v is None:
+                                    data["error"] = "%s字段值不能为空" % k
+                                    return TemplateResponse(request, "my_app_template/bom.html", data)
+
+                            # 判断上传的物料代码和父类代码是否存在
+                            try:
+                                Item.objects.get(nr=item)
+                            except Item.DoesNotExist as e:
+                                traceback.print_exc()
+                                data["error"] = "第 %s 行物料为%s数据不存在" % (excel_level, item)
+                                return TemplateResponse(request, "my_app_template/bom.html", data)
+                            try:
+                                Item.objects.get(nr=parent)
+                            except Item.DoesNotExist as e:
+                                data["error"] = "第 %s 行父类为%s数据不存在" % (excel_level, parent)
+                                return TemplateResponse(request, "my_app_template/bom.html", data)
+
+                            # 有id值进行更新或者创建，没有id值进行创建
+                            if headers_index["id"] is not None and values[headers_index["id"]]:
+                                bom_query = BomModel.objects.filter(id=id)
+                                # 有id值更新有效期、数量
+                                if bom_query:
+                                    bom_detail = BomModel.objects.filter(id=id, nr=nr, item__nr=item,
+                                                                         parent__nr=parent).first()
+                                    if bom_detail:
+                                        bom_detail.qty = qty
+                                        bom_detail.effective_start = effective_start
+                                        bom_detail.effective_end = effective_end
+                                        bom_detail.save()
+                                    else:
+                                        data["error"] = "第 %s 行数据不存在" % excel_level
+                                        return TemplateResponse(request, "my_app_template/bom.html", data)
+
+                                # 有id值，但是为无效的id
+                                else:
+                                    try:
+                                        if parent:
+                                            BomModel.objects.create(nr=nr, item__nr=item,
+                                                                    parent__nr=parent, qty=qty,
+                                                                    effective_start=effective_start,
+                                                                    effective_end=effective_end)
+                                        else:
+                                            BomModel.objects.create(nr=nr, item__nr=item,
+                                                                    qty=qty,
+                                                                    effective_start=effective_start,
+                                                                    effective_end=effective_end)
+                                    except Exception as e:
+                                        data = self._get_data(request)
+                                        data["error"] = "数据已存在，无法上传"
+                                        return TemplateResponse(request, "my_app_template/bom.html", data)
+
+                            # 无id值创建
+                            else:
+                                try:
+                                    if parent:
+                                        BomModel.objects.create(nr=nr, item__nr=item,
+                                                                parent__nr=parent, qty=qty,
+                                                                effective_start=effective_start,
+                                                                effective_end=effective_end)
+                                    else:
+                                        BomModel.objects.create(nr=nr, item__nr=item,
+                                                                qty=qty,
+                                                                effective_start=effective_start,
+                                                                effective_end=effective_end)
+                                except Exception as e:
+                                    data = self._get_data(request)
+                                    data["error"] = "数据已存在，无法上传"
+                                    return TemplateResponse(request, "my_app_template/bom.html", data)
+
+                return TemplateResponse(request, "my_app_template/bom.html", data)
+
+        else:
+            data["error"] = "没有上传文件"
+            return TemplateResponse(request, "my_app_template/bom.html", data)
 
     def _get_data(self, request, in_page=True, *args, **kwargs):
         page = request.GET.get("page", 1)
@@ -53,16 +253,16 @@ class ItemBom(View):
                 adict["id"] = i.id
                 adict["item"] = i.item.nr
                 adict["nr"] = i.nr
-                adict["parent"] = parent.nr
                 adict["effective_start"] = i.effective_start
                 adict["effective_end"] = i.effective_end
                 adict["qty"] = i.qty
                 child_bom_list.append(adict)
             content = {
                 "parent_id": pid,
-                "parent": parent.nr,
+                "parent": parent,
                 "pg": pagination,
                 "data": node_data,
+                "bom_query": bom_query,
                 "child_bom_list": child_bom_list,
                 "query": fs,
                 "query_url": request.session.get("bom_query_url", None) if request.session.get("bom_query_url",
@@ -79,6 +279,7 @@ class ItemBom(View):
                 "pg": pagination,
                 "nodes": pagination.get_objs(),
                 "data": node_data,
+                "bom_query": bom_query,
                 "child_bom_list": child_bom_list,
                 "query": fs,
                 "query_url": request.session.get("bom_query_url", None) if request.session.get("bom_query_url",
@@ -151,28 +352,32 @@ class ItemBomAdd(View):
             return TemplateResponse(request, "my_app_template/bom_add.html", content)
 
 
-class BomEdit(View):
+class ItemBomEdit(View):
     def get(self, request, *args, **kwargs):
         id = request.GET.get("id", None)
-        if id:
-            item = Tree_Model.objects.get(id=id)
+        try:
+            bom_detail = BomModel.objects.get(id=id)
             content = {
                 "id": id,
-                "name": item.name,
-                "effective_start": datetime.strftime(item.effective_start, "%Y-%m-%d"),
-                "effective_end": datetime.strftime(item.effective_end, "%Y-%m-%d"),
-                "qty": item.qty,
+                "item": bom_detail.item.nr,
+                "parent": bom_detail.parent.nr if bom_detail.parent else "",
+                "nr": bom_detail.nr,
+                "effective_start": datetime.strftime(bom_detail.effective_start, "%Y-%m-%d"),
+                "effective_end": datetime.strftime(bom_detail.effective_end, "%Y-%m-%d"),
+                "qty": bom_detail.qty,
                 "perm": request.perm
             }
-            return TemplateResponse(request, "bom_edit.html", content)
-        else:
-            return HttpResponseRedirect("/bom/?mag=查询数据失败")
+            return TemplateResponse(request, "my_app_template/bom_edit.html", content)
+        except Exception as e:
+            return HttpResponseRedirect("/item/bom/?mag=查询数据失败")
 
     def post(self, request, *args, **kwargs):
-        form = BomEditForm(request.POST)
+        form = ItemBomForm(request.POST)
         # 获取表单数据
         id = request.POST['id']
-        name = request.POST['name']
+        bom_detail = request.POST['item']
+        parent = request.POST['parent']
+        nr = request.POST['nr']
         effective_start = request.POST["effective_start"] if request.POST["effective_start"] else datetime(
             datetime.now().year,
             datetime.now().month,
@@ -181,7 +386,9 @@ class BomEdit(View):
         qty = request.POST['qty']
         content = {
             "id": id,
-            "name": name,
+            "item": bom_detail,
+            "parent": parent,
+            "nr": nr,
             "effective_start": effective_start,
             "effective_end": effective_end,
             "qty": qty,
@@ -192,24 +399,24 @@ class BomEdit(View):
             with transaction.atomic(savepoint=False):
                 # 创建保存点
                 try:
-                    item = Tree_Model.objects.get(id=id)
-                    item.name = name
-                    item.effective_start = effective_start
-                    item.effective_end = effective_end
-                    item.qty = qty
-                    item.save()
+                    bom_detail = BomModel.objects.get(id=id)
+                    bom_detail.effective_start = effective_start
+                    bom_detail.effective_end = effective_end
+                    bom_detail.qty = qty
+                    bom_detail.nr = nr
+                    bom_detail.save()
                 except Exception as e:
                     print(e)
                     content["error"] = "编辑失效"
-                    return TemplateResponse(request, "bom_edit.html", content)
+                    return TemplateResponse(request, "my_app_template/bom_edit.html", content)
                 else:
-                    return HttpResponseRedirect("/bom/")
+                    return HttpResponseRedirect("/item/bom/")
         else:
             content["error"] = "表单填写错误"
-            return TemplateResponse(request, "bom_edit.html", content)
+            return TemplateResponse(request, "my_app_template/bom_edit.html", content)
 
 
-class BomCalculate(View):
+class ItemBomCalculate(View):
     def get(self, request, *args, **kwargs):
         fmt = request.GET.get('format', None)
         if fmt is None:
@@ -289,18 +496,18 @@ class BomCalculate(View):
     def _get_data(self, request, *args, **kwargs):
         id = request.GET.get("id", None)
         number = int(request.GET.get("qty", None))
-        item = Tree_Model.objects.get(id=id)
+        bom = BomModel.objects.get(id=id)
 
         # 计算采购物料的qty
         purchase_list = []
         manufacture_list = []
-        purchase = item.get_leafnodes().filter(effective_end__gte=timezone.now())
-        child = item.get_descendants().filter(effective_end__gte=timezone.now())
+        purchase = bom.get_leafnodes().filter(effective_end__gte=timezone.now())
+        child = bom.get_descendants().filter(effective_end__gte=timezone.now())
 
         if list(purchase) == list(child):
             for i in purchase:
                 adict = {}
-                adict["qty"] = i.qty * number * item.qty
+                adict["qty"] = i.qty * number * bom.qty
                 adict["name"] = i.name
                 purchase_list.append(adict)
 
@@ -319,13 +526,13 @@ class BomCalculate(View):
 
                 return qty_child
 
-            get_qty(item, item.qty * number)
+            get_qty(bom, bom.qty * number)
             print(purchase_list)
             print(manufacture_list)
 
         content = {
             "id": id,
-            "item": item.name,
+            "item": bom.name,
             "qty": number,
             "purchase": purchase_list,
             "manufacture": manufacture_list
@@ -333,31 +540,33 @@ class BomCalculate(View):
         return content
 
 
-class BomDelete(View):
+class ItemBomDelete(View):
     def get(self, request, *args, **kwargs):
         id = request.GET.get("id", None)
         if id:
             try:
-                item = Tree_Model.objects.get(id=id)
+                bom_detail = BomModel.objects.get(id=id)
             except:
                 return HttpResponseRedirect("/bom/?msg=找不到此数据")
             else:
                 content = {
                     "id": id,
-                    "item": item.name,
-                    "parent": item.parent.name if item.parent else "",
-                    "effective_start": datetime.strftime(item.effective_start, "%Y-%m-%d"),
-                    "effective_end": datetime.strftime(item.effective_start, "%Y-%m-%d"),
-                    "qty": item.qty
+                    "item": bom_detail.item.nr,
+                    "parent": bom_detail.parent.nr if bom_detail.parent else "",
+                    "nr": bom_detail.nr,
+                    "effective_start": datetime.strftime(bom_detail.effective_start, "%Y-%m-%d"),
+                    "effective_end": datetime.strftime(bom_detail.effective_start, "%Y-%m-%d"),
+                    "qty": bom_detail.qty
                 }
-                return TemplateResponse(request, "bom_delete.html", content)
+                return TemplateResponse(request, "my_app_template/bom_delete.html", content)
         else:
-            return HttpResponseRedirect("/bom?msg=找不到数据")
+            return HttpResponseRedirect("/item/bom?msg=找不到数据")
 
     def post(self, request, *args, **kwargs):
         id = request.POST['id']
         parent = request.POST['parent']
         item = request.POST['item']
+        nr = request.POST['nr']
         effective_start = request.POST['effective_start']
         effective_end = request.POST['effective_end']
         qty = request.POST["qty"]
@@ -366,6 +575,7 @@ class BomDelete(View):
             "id": id,
             "item": item,
             "parent": parent,
+            "nr": nr,
             "effective_start": effective_start,
             "effective_end": effective_end,
             "qty": qty,
@@ -375,28 +585,12 @@ class BomDelete(View):
         with transaction.atomic(savepoint=False):
             # 创建保存点
             try:
-                item_node = Tree_Model.objects.get(id=id)
-                # 判断当前删除的节点是否为根节点，如果为根节点直接删除当前节点
-                if not item_node.is_root_node():
-                    nodes = Tree_Model.objects.filter(name=item)
-                    root = False
-                    # 当前节点不是根节点，但是存在是根节点的关系，删除当前节点
-                    for i in nodes:
-                        if i.is_root_node():
-                            root = True
-                            break
-                    if root:
-                        item_node.delete()
-                    # 当前节点不存在是根节点的情况，删除所有
-                    else:
-                        nodes.delete()
-                else:
-                    item_node.delete()
-
+                bom = BomModel.objects.get(id=id)
+                bom.delete()
             except Exception as e:
                 traceback.print_exc()
                 content["error"] = "删除失败"
-                return TemplateResponse(request, "bom_delete.html", content)
+                return TemplateResponse(request, "my_app_template/bom_delete.html", content)
 
             else:
-                return HttpResponseRedirect('/bom/')
+                return HttpResponseRedirect('/item/bom/')
