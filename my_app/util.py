@@ -107,13 +107,14 @@ class BomData(object):
                 node.text = p.item.nr
                 node.tags = [p.id]
                 node.query_url = query_url
-                children = BomModel.objects.filter(parent_id=p.id)
+                children = BomModel.objects.filter(parent_id=p.item.id)
                 if len(children) > 0:
                     node.nodes = get_deep_tree(children)
                 display_tree.append(node.to_dict())
             return display_tree
 
         bom_root = bom_query.filter(parent=None)
+        print(bom_root)
         if bom_root:
             node_data = get_deep_tree(bom_root)
         else:

@@ -312,6 +312,7 @@ class ItemBomAdd(View):
         }
         return TemplateResponse(request, "my_app_template/bom_add.html", content)
 
+    # TODO 创建有问题
     def post(self, request, *args, **kwargs):
         form = ItemBomForm(request.POST)
         form_get = request.POST.dict()
@@ -343,20 +344,35 @@ class ItemBomAdd(View):
                 return TemplateResponse(request, "my_app_template/bom_add.html", content)
             try:
                 if parent:
-                    item_parent = BomModel.objects.filter(id=parent)
-                    if not item_parent:
+                    add_parent = BomModel.objects.filter(item_id=parent)
+                    if not add_parent:
                         content["error"] = "请先创建父类信息"
                         return TemplateResponse(request, "my_app_template/bom_add.html", content)
-                    BomModel.objects.create(nr=nr, item_id=item, parent_id=parent, effective_end=effective_end,
-                                            effective_start=effective_start, qty=qty)
+                    # item是否为根节点
+                    add_item = BomModel.objects.filter(item_id=item, parent=None)
+                    item_parent = Item.objects.get(id=parent)
+                    # 如果是为根节点修改节点信息
+                    if add_item:
+                        add_item = add_item.first()
+                        add_item.parent = item_parent
+                        add_item.nr = nr
+                        add_item.effective_end = effective_end
+                        add_item.effective_start = effective_start
+                        add_item.qty = qty
+                        add_item.save()
+                    # item如果不是根节点，创建信息
+                    else:
+                        BomModel.objects.create(nr=nr, item_id=item, parent_id=parent, effective_end=effective_end,
+                                                effective_start=effective_start, qty=qty)
                 else:
                     BomModel.objects.create(nr=nr, item_id=item, effective_end=effective_end,
                                             effective_start=effective_start, qty=qty)
-            except:
+            except Exception as e:
+                print(e)
                 content["error"] = "数据已经存在，请重新填写数据"
                 return TemplateResponse(request, "my_app_template/bom_add.html", content)
             else:
-                return TemplateResponse(request, "my_app_template/bom_add.html", content)
+                return HttpResponseRedirect("/item/bom/")
         else:
             content["error"] = "表单错误"
             return TemplateResponse(request, "my_app_template/bom_add.html", content)
