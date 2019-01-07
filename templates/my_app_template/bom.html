@@ -205,11 +205,18 @@
             <a href="/item/bom/?page=1&format=spreadsheet{{ query_url }}">
             <button> 下载</button>&nbsp;&nbsp;&nbsp;
         </a>
+            <a href="/item/bom/?page=1&all=true">
+            <button>所有数据</button>&nbsp;&nbsp;&nbsp;
+        </a>
+            <a href="/item/bom/?page=1">
+            <button>有效期内数据</button>&nbsp;&nbsp;&nbsp;
+        </a>
+
     </div>
         <br><br>
         {% if parent %}
-        <div id="tree" style="width: 300px;height: 400px;float: left;margin-left: 40px;"></div>
-        <div style="float: left;margin-left: 150px;">
+        <div id="tree" style="width: 300px;height: 400px;float: left;margin-right: 50px;"></div>
+        <div style="float: left;">
             <table>
                 <tr>
                     <th>物料</th>
@@ -248,7 +255,7 @@
                         <div class="form-horizontal">
                             <form action="/item/bom/calculate/?id={{ parent.id }}&qty={{ qty }}" method="get"
                                   enctype="multipart/form-data">
-                                  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<label for="item">物料:</label>
+                                  <label for="item">物料:</label>
                                   <input type="text" name="nr" value="{{ parent.nr }}" id="item" readonly>&nbsp;&nbsp;&nbsp;
                                   <input type="text" name="id" value="{{ parent.id }}" id="id" hidden>&nbsp;&nbsp;&nbsp;
                                   <label for="qty">物料数量:</label>
@@ -287,21 +294,17 @@
             <th><input value="{{ i.effective_start }}" readonly></th>
             <th><input value="{{ i.effective_end }}" readonly></th>
             <th><input value="{{ i.qty }}" readonly></th>
-            {% if "change_item" in perm %}
                 <th>
                     <a href="/item/bom/edit/?id={{ i.id }}">
                         <button> 修改</button>
                     </a>
                 </th>
-            {% endif %}
 
-            {% if "delete_item" in perm %}
                 <th>
                     <a href="/item/bom/delete/?id={{ i.id }}">
                         <button> 删除</button>
                     </a>
                 </th>
-            {% endif %}
         {% endfor %}
     </table>
 {% endif %}
@@ -310,18 +313,18 @@
 </div>
 <div style="float: left;margin-left: 350px">
     <br><br><br><br><br><br><br><br>
-    <a href="/bom/?page=1{{ query_url }}">
+    <a href="/item/bom/?page=1{{ query_url }}">
         <button> 第一页</button>
     </a>
-    <a href="/bom/?page={{ pg.prev }}{{ query_url }}">
+    <a href="/item/bom/?page={{ pg.prev }}{{ query_url }}">
         <button> 上一页</button>
     </a>
     <input id="curPage" type="text" size="5" value="{{ pg.page }}">
-    <a href="/bom/?page={{ pg.next }}{{ query_url }}">
+    <a href="/item/bom/?page={{ pg.next }}{{ query_url }}">
         <button> 下一页</button>
     </a>
 
-    <a href="/bom/?page={{ pg.total_pages }}{{ query_url }}">
+    <a href="/item/bom/?page={{ pg.total_pages }}{{ query_url }}">
         <button> 最后一页</button>
     </a>
 

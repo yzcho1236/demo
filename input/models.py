@@ -33,24 +33,14 @@ class Role(models.Model):
 class User(AbstractUser):
     """用户"""
 
-    def has_perm(self, perm, obj=None):
-        # 获取用户关联的所有角色对象
-        if self.is_active and self.is_superuser:
-            return True
-        else:
-            roles = UserRole.objects.filter(user=self.id).values_list('role_id')
-            return RolePermission.objects.filter(role_id__in=roles, permission__codename=perm).exists()
-
-            # role_perm = []
-            # # 获取用户权限对象列表
-            # for i in roles:
-            #     # 查询角色关联的所有权限
-            #     perms = RolePermission.objects.filter(role=i.role).values("permission__codename")
-            #     perms_list = [i["permission__codename"] for i in list(perms)]
-            #     if perm in perms_list:
-            #         return True
-
-
+    # def has_perm(self, perm, obj=None):
+    #     # 获取用户关联的所有角色对象
+    #     if self.is_active and self.is_superuser:
+    #         return True
+    #     else:
+    #         roles = UserRole.objects.filter(user=self.id).values_list('role_id')
+    #         return RolePermission.objects.filter(role_id__in=roles, permission__codename=perm).exists()
+    pass
 class RolePermission(models.Model):
     """角色权限"""
     id = models.AutoField('id', primary_key=True)

@@ -9,7 +9,7 @@ from django.http import HttpResponse, HttpResponseRedirect
 from django.template.response import TemplateResponse
 from django.utils import timezone
 from django.utils.encoding import force_str
-from django.views import View
+from django.views import View, generic
 from openpyxl import Workbook, load_workbook
 from openpyxl.cell import WriteOnlyCell
 
@@ -248,7 +248,6 @@ class ItemBom(View):
         pagination = Pagination(bom_query, pagesize, page)
 
         item_id = request.GET.get("id", None)
-        page = request.GET.get("page", 1)
         child_bom_list = []
         if bom_query:
             if item_id:
@@ -256,7 +255,6 @@ class ItemBom(View):
             else:
                 pid = bom_query.first().id
             parent = BomModel.objects.get(id=pid)
-            pagination = Pagination(bom_query, request.pagesizes, page)
             child_bom = BomModel.objects.filter(parent_id=pid, effective_end__gte=timezone.now())
             for i in child_bom:
                 adict = {}
@@ -521,7 +519,9 @@ class ItemBomCalculate(View):
 
     def _get_data(self, request, *args, **kwargs):
         id = request.GET.get("id", None)
-        number = int(request.GET.get("qty", None))
+        number = request.GET.get("qty", None)
+        if number:
+            number = int(number)
         bom_filter = BomModel.objects.filter(id=id)
         if not bom_filter:
             return HttpResponseRedirect("/item/bom/?msg=查询数据出错")
@@ -546,7 +546,7 @@ class ItemBomCalculate(View):
 
             return qty_child
 
-        get_qty(bom, bom.qty * number)
+        get_qty(bom, number / bom.qty)
 
         content = {
             "id": id,
@@ -613,3 +613,11 @@ class ItemBomDelete(View):
 
             else:
                 return HttpResponseRedirect('/item/bom/')
+
+
+class JustTest(generic.ListView):
+    model = Item
+    template_name = 'just.html'
+
+    def get_queryset(self):
+        return Item.objects.all()

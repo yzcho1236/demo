@@ -46,6 +46,8 @@ class BomData(object):
         fs = []
         search = False
         current_time = timezone.now()
+        # 是否显示所有数据
+        all_data = query_data.get("all", None)
         if "data" in query_data and "op" in query_data and "data" in query_data:
             search = True
             data_query = query_data["data"]
@@ -86,9 +88,12 @@ class BomData(object):
                     q_filters.append(Q(**filter_kwargs))
 
         if q_filters:
-            bom_query = obj.objects.all().filter(functools.reduce(operator.iand, q_filters))
+            bom_query = obj.objects.all().filter(functools.reduce(operator.iand, q_filters)).order_by("id")
         else:
-            bom_query = obj.objects.all().filter(effective_end__gte=current_time).order_by("id")
+            if all_data:
+                bom_query = obj.objects.all().order_by("id")
+            else:
+                bom_query = obj.objects.all().filter(effective_end__gte=current_time).order_by("id")
         # 根据查询的列表拼接URL
         array = []
         for i in fs:
@@ -107,7 +112,11 @@ class BomData(object):
                 node.text = p.item.nr
                 node.tags = [p.id]
                 node.query_url = query_url
-                children = BomModel.objects.filter(parent_id=p.item.id)
+                if all_data:
+                    children = BomModel.objects.filter(parent_id=p.item.id).order_by("id")
+                else:
+                    children = BomModel.objects.filter(parent_id=p.item.id, effective_end__gte=timezone.now()).order_by(
+                        "id")
                 if len(children) > 0:
                     node.nodes = get_deep_tree(children)
                 display_tree.append(node.to_dict())
@@ -117,6 +126,7 @@ class BomData(object):
         print(bom_root)
         if bom_root:
             node_data = get_deep_tree(bom_root)
+            bom_query = bom_root
         else:
             node_data = get_deep_tree(bom_query)
 
@@ -138,5 +148,5 @@ class TreeNode(object):
             'text': self.text,
             'nodes': self.nodes,
             'tags': self.tags,
-            "href": "?page=1&id=%s%s" % (self.id, self.query_url)
+            "href": "?id=%s%s" % (self.id, self.query_url)
         }
