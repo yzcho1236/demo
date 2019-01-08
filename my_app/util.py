@@ -48,6 +48,7 @@ class BomData(object):
         current_time = timezone.now()
         # 是否显示所有数据
         all_data = query_data.get("all", None)
+        expire = query_data.get("expire", None)
         if "data" in query_data and "op" in query_data and "data" in query_data:
             search = True
             data_query = query_data["data"]
@@ -87,13 +88,6 @@ class BomData(object):
                 else:
                     q_filters.append(Q(**filter_kwargs))
 
-        if q_filters:
-            bom_query = obj.objects.all().filter(functools.reduce(operator.iand, q_filters)).order_by("id")
-        else:
-            if all_data:
-                bom_query = obj.objects.all().order_by("id")
-            else:
-                bom_query = obj.objects.all().filter(effective_end__gte=current_time).order_by("id")
         # 根据查询的列表拼接URL
         array = []
         for i in fs:
@@ -102,35 +96,59 @@ class BomData(object):
                 array.append(b)
         query_url = "".join(array)
 
-        def get_deep_tree(parents):
-
-            display_tree = []
-            # 所有父节点
-            for p in parents:
-                node = TreeNode()
-                node.id = p.id
-                node.text = p.item.nr
-                node.tags = [p.id]
-                node.query_url = query_url
-                if all_data:
-                    children = BomModel.objects.filter(parent_id=p.item.id).order_by("id")
-                else:
-                    children = BomModel.objects.filter(parent_id=p.item.id, effective_end__gte=timezone.now()).order_by(
-                        "id")
-                if len(children) > 0:
-                    node.nodes = get_deep_tree(children)
-                display_tree.append(node.to_dict())
-            return display_tree
-
-        bom_root = bom_query.filter(parent=None)
-        print(bom_root)
-        if bom_root:
-            node_data = get_deep_tree(bom_root)
-            bom_query = bom_root
+        if q_filters:
+            # 是否为有效期内的数据
+            if expire:
+                q_filters.append(Q(**{'effective_end__gte': current_time}))
+                bom_query = obj.objects.all().filter(functools.reduce(operator.iand, q_filters)).order_by("id")
+            else:
+                bom_query = obj.objects.all().filter(functools.reduce(operator.iand, q_filters)).order_by("id")
+            download = bom_query
+            node_data = []
+            for i in bom_query:
+                adict = {}
+                adict["id"] = i.id
+                adict["text"] = i.item.nr
+                adict["nodes"] = []
+                adict["tags"] = [i.id]
+                adict["href"] = "?id=%s%s" % (i.id, query_url)
+                node_data.append(adict)
         else:
-            node_data = get_deep_tree(bom_query)
+            if all_data:
+                bom_query = obj.objects.all().order_by("id")
+            else:
+                bom_query = obj.objects.all().filter(effective_end__gte=current_time).order_by("id")
+            download = bom_query
 
-        return bom_query, node_data, fs, query_url, search
+            def get_deep_tree(parents):
+
+                display_tree = []
+                # 所有父节点
+                for p in parents:
+                    node = TreeNode()
+                    node.id = p.id
+                    node.text = p.item.nr
+                    node.tags = [p.id]
+                    node.query_url = query_url
+                    if all_data:
+                        children = BomModel.objects.filter(parent_id=p.item.id).order_by("id")
+                    else:
+                        children = BomModel.objects.filter(parent_id=p.item.id,
+                                                           effective_end__gte=timezone.now()).order_by(
+                            "id")
+                    if len(children) > 0:
+                        node.nodes = get_deep_tree(children)
+                    display_tree.append(node.to_dict())
+                return display_tree
+
+            bom_root = bom_query.filter(parent=None)
+            if bom_root:
+                node_data = get_deep_tree(bom_root)
+                bom_query = bom_root
+            else:
+                node_data = get_deep_tree(bom_query)
+
+        return bom_query, node_data, download, fs, query_url, search
 
 
 class TreeNode(object):

@@ -1,0 +1,20 @@
+{% load static %}
+<!DOCTYPE html>
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>用户反馈</title>
+</head>
+<body>
+<form action="/text/" method="post" enctype="multipart/form-data">
+    上传：
+    <input type="file" name="picture">
+    <input type="submit" value="上传">
+
+</form>
+{{ pic_obj.pic }}
+<img src="{% static  pic_obj.pic %}" alt="">
+</body>
+
+</html>

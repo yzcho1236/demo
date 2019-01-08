@@ -146,7 +146,11 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/1.11/howto/static-files/
 
-STATIC_URL = '/static/'
+STATIC_URL = 'demo/static/'
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'demo/static'),
+]
+MEDIA_ROOT = os.path.join(BASE_DIR, 'demo/static')
 
 AUTH_USER_MODEL = 'input.User'
 AUTHENTICATION_BACKENDS = [
@@ -177,14 +181,14 @@ LOGGING = {
     },
     'handlers': {
         'null': {
-            'level':'DEBUG',
-            'class':'logging.NullHandler',
+            'level': 'DEBUG',
+            'class': 'logging.NullHandler',
         },
-        'console':{
-            'level':'DEBUG',
-            'class':'logging.StreamHandler',
+        'console': {
+            'level': 'DEBUG',
+            'class': 'logging.StreamHandler',
             # 'formatter': 'simple'
-            'formatter':'file'
+            'formatter': 'file'
         },
         'mail_admins': {
             'level': 'CRITICAL',
@@ -196,9 +200,9 @@ LOGGING = {
         # A handler to log all SQL queries.
         # The setting "DEBUG" also needs to be set to True higher up in this file.
         'django.db.backends': {
-           'handlers': ['console'],
-           'level': 'DEBUG',
-           'propagate': False,
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': False,
         },
         'django': {
             'handlers': ['console'],
@@ -209,4 +213,3 @@ LOGGING = {
 
 LOGIN_URL = '/login/'
 DEFAULT_PAGESIZE = 5
-

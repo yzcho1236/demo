@@ -1,9 +1,13 @@
 import logging
 from datetime import datetime
+
+from django.contrib.contenttypes.fields import GenericRelation
 from mptt.models import MPTTModel
 from django.contrib.auth.models import AbstractUser, Permission
 from django.db import models, DEFAULT_DB_ALIAS, transaction, connections
 from mptt.fields import TreeForeignKey
+
+# from my_app.models import Comment
 
 
 class Perm(models.Model):
@@ -74,12 +78,8 @@ class Item(models.Model):
     nr = models.CharField(max_length=300, unique=True, verbose_name="代码")
     name = models.CharField(max_length=300, verbose_name="名称")
     barcode = models.CharField(max_length=300, verbose_name="条码")
-    # 左节点
-    lft = models.PositiveIntegerField(null=True, blank=True, verbose_name="左节点")
-    # 右节点
-    rght = models.PositiveIntegerField(null=True, blank=True, verbose_name="右节点")
-    # 层级
-    lvl = models.PositiveIntegerField(null=True, blank=True, verbose_name="层级")
+    # comments = GenericRelation(Comment, verbose_name='评论', related_name='bom_comment',
+    #                            object_id_field='object_pk')
 
 
     def __str__(self):

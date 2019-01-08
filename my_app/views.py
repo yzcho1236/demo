@@ -5,6 +5,7 @@ from io import BytesIO
 
 from django.db import transaction
 from django.db.models import NOT_PROVIDED, AutoField
+
 from django.http import HttpResponse, HttpResponseRedirect
 from django.template.response import TemplateResponse
 from django.utils import timezone
@@ -16,8 +17,9 @@ from openpyxl.cell import WriteOnlyCell
 from demo.util import Pagination, select_op
 from input.models import Item
 from my_app.form import ItemBomForm
-from my_app.models import BomModel
+from my_app.models import BomModel, Pictures
 from my_app.util import BomNr, BomData
+from settings import MEDIA_ROOT
 
 
 class ItemBom(View):
@@ -46,7 +48,7 @@ class ItemBom(View):
             ws.append(headers)
 
             data = []
-            for i in json["bom_query"]:
+            for i in json["download"]:
                 adict = {}
                 adict["id"] = i.id
                 adict["item"] = i.item.nr
@@ -197,10 +199,16 @@ class ItemBom(View):
                                 else:
                                     try:
                                         if parent:
-                                            BomModel.objects.create(nr=nr, item=bom_item,
-                                                                    parent=bom_parent, qty=qty,
-                                                                    effective_start=effective_start,
-                                                                    effective_end=effective_end)
+                                            if BomModel.objects.filter(item=bom_parent):
+                                                data["error"] = "第 %s 行请先创建父类信息" % excel_level
+                                                return TemplateResponse(request, "my_app_template/bom.html", data)
+
+                                            else:
+                                                BomModel.objects.create(nr=nr, item=bom_item,
+                                                                        parent=bom_parent, qty=qty,
+                                                                        effective_start=effective_start,
+                                                                        effective_end=effective_end)
+
                                         else:
                                             BomModel.objects.create(nr=nr, item=bom_item,
                                                                     qty=qty,
@@ -215,10 +223,14 @@ class ItemBom(View):
                             else:
                                 try:
                                     if parent:
-                                        BomModel.objects.create(nr=nr, item=bom_item,
-                                                                parent=bom_parent, qty=qty,
-                                                                effective_start=effective_start,
-                                                                effective_end=effective_end)
+                                        if not BomModel.objects.filter(item=bom_parent):
+                                            data["error"] = "第 %s 行请先创建父类信息" % excel_level
+                                            return TemplateResponse(request, "my_app_template/bom.html", data)
+                                        else:
+                                            BomModel.objects.create(nr=nr, item=bom_item,
+                                                                    parent=bom_parent, qty=qty,
+                                                                    effective_start=effective_start,
+                                                                    effective_end=effective_end)
                                     else:
                                         BomModel.objects.create(nr=nr, item=bom_item,
                                                                 qty=qty,
@@ -240,7 +252,8 @@ class ItemBom(View):
     def _get_data(self, request, in_page=True, *args, **kwargs):
         page = request.GET.get("page", 1)
         query_data = dict(request.GET.lists())
-        bom_query, node_data, fs, query_url, search = BomData.get_tree(BomModel, query_data, self.select_field)
+        bom_query, node_data, download, fs, query_url, search = BomData.get_tree(BomModel, query_data,
+                                                                                 self.select_field)
         if search:
             request.session["bom_query_url"] = query_url
         count = float(bom_query.count())
@@ -255,7 +268,12 @@ class ItemBom(View):
             else:
                 pid = bom_query.first().id
             parent = BomModel.objects.get(id=pid)
-            child_bom = BomModel.objects.filter(parent_id=pid, effective_end__gte=timezone.now())
+
+            # 是否查询所有数据
+            if query_data.get("all", None):
+                child_bom = BomModel.objects.filter(parent_id=pid).order_by("id")
+            else:
+                child_bom = BomModel.objects.filter(parent_id=pid, effective_end__gte=timezone.now()).order_by("id")
             for i in child_bom:
                 adict = {}
                 adict["id"] = i.id
@@ -272,6 +290,7 @@ class ItemBom(View):
                 "data": node_data,
                 "bom_query": bom_query,
                 "child_bom_list": child_bom_list,
+                "download": download,
                 "query": fs,
                 "query_url": request.session.get("bom_query_url", None) if request.session.get("bom_query_url",
                                                                                                None) else "",
@@ -289,6 +308,7 @@ class ItemBom(View):
                 "data": node_data,
                 "bom_query": bom_query,
                 "child_bom_list": child_bom_list,
+                "download": download,
                 "query": fs,
                 "query_url": request.session.get("bom_query_url", None) if request.session.get("bom_query_url",
                                                                                                None) else "",
@@ -615,9 +635,24 @@ class ItemBomDelete(View):
                 return HttpResponseRedirect('/item/bom/')
 
 
-class JustTest(generic.ListView):
-    model = Item
-    template_name = 'just.html'
+class JustTest(View):
+    def get(self, request, *args, **kwargs):
+        return TemplateResponse(request, "test.html")
 
-    def get_queryset(self):
-        return Item.objects.all()
+    def post(self, request, *args, **kwargs):
+        f1 = request.FILES.get('picture')
+        p = Pictures()
+        p.pic = f1.name
+        p.save()
+        print(MEDIA_ROOT)
+        fname = MEDIA_ROOT + "\picture\ " + f1.name
+        with open(fname, 'wb') as pic:
+            for c in f1.chunks():
+                pic.write(c)
+        return HttpResponse("上传成功")
+
+
+class ShowPicture(View):
+    def get(self, request, *args, **kwargs):
+        pic_obj = Pictures.objects.get(id=8)
+        return TemplateResponse(request, "test.html", {"pic_obj": pic_obj})

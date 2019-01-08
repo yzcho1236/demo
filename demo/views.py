@@ -121,8 +121,12 @@ class Register(View):
 
 def index(request):
     perm = request.perm
-    # query = request.session.get("query_data", None) if request.session.get("query_data", None) else []
-    return TemplateResponse(request, "index.html", {"perm": perm})
+    query_url = request.session.get("query_url", None)
+    content = {
+        "perm": perm,
+        "query_url": query_url
+    }
+    return TemplateResponse(request, "index.html", content)
 
 
 class ItemView(View):
