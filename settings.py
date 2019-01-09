@@ -146,11 +146,13 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/1.11/howto/static-files/
 
-STATIC_URL = 'demo/static/'
+STATIC_URL = '/demo/static/'
 STATICFILES_DIRS = [
-    os.path.join(BASE_DIR, 'demo/static'),
+    os.path.join(BASE_DIR, 'demo/static/'),
 ]
-MEDIA_ROOT = os.path.join(BASE_DIR, 'demo/static')
+
+MEDIA_ROOT = os.path.join(BASE_DIR, 'demo/upload')
+# MEDIA_URL = '/demo/upload/' #这个是在浏览器上访问该上传文件的url的前缀
 
 AUTH_USER_MODEL = 'input.User'
 AUTHENTICATION_BACKENDS = [

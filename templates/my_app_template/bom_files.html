@@ -1,0 +1,32 @@
+{% load staticfiles %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+<table>
+    <tr>
+        <th>上传文件</th>
+        <th>上传图片</th>
+        <th>操作人</th>
+        <th>上传时间</th>
+    </tr>
+    {% for i in upload %}
+    <tr>
+        <th>
+            <a href="/demo/static/file/bommodel{{ pid }}{{ i.user.username }}{{ i.file }}">{{ i.file }}</a>
+        </th>
+        <th>
+            <a href="/demo/static/img/bommodel{{ pid }}{{ i.user.username }}{{ i.img }}">{{ i.img }}</a>
+        </th>
+        <th>{{ i.user.username }}</th>
+        <th>{{ i.upload_time }}</th>
+    </tr>
+
+    {% endfor %}
+</table>
+{{ error }}
+</body>
+</html>

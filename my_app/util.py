@@ -19,6 +19,7 @@ class BomNr(object):
         return item_data
 
 
+
 _filter_map_jqgrid_django_mptt = {
     'ne': ('%(field)s__exact', True),
     'bn': ('%(field)s__startswith', True),
