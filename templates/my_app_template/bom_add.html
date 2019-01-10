@@ -5,9 +5,12 @@
 {% block content %}
     <h3>bom添加</h3>
     <br><br>
+    {{ parent }}<br>
+    {{ parent_id }}<br>
+    {{ item_id }}
     <form action="/item/bom/add/" method="post" enctype="multipart/form-data">
         <label for="item">物料:</label>
-        <select name="item" id="item">
+        <select name="item" id="item" onclick="select_enum()">
             {% for k,v in item.items %}
                 {% if item_id == k %}
                     <option selected="selected" value="{{ k }}">{{ v }}</option>
@@ -18,7 +21,7 @@
         </select>&nbsp;&nbsp;&nbsp;
         <label for="parent">父类:</label>
         <select name="parent" id="parent">
-            <option value=""> -----</option>
+            <option value="">------</option>
             {% for k,v in parent.items %}
                 {% if parent_id == k %}
                     <option selected="selected" value="{{ k }}">{{ v }}</option>

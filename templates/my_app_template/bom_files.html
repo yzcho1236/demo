@@ -1,32 +1,62 @@
-{% load staticfiles %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <title>Title</title>
 </head>
+<style>
+    .com{
+        width: 300px;
+        height: 50px;
+    }
+</style>
+
 <body>
-<table>
+{{ content }}
+<div>
+  <table>
     <tr>
-        <th>上传文件</th>
-        <th>上传图片</th>
-        <th>操作人</th>
-        <th>上传时间</th>
+        <th class="com"> 上传文件 </th>
+        <th class="com"> 操作人 </th>
+        <th class="com"> 上传时间 </th>
     </tr>
-    {% for i in upload %}
+    {% for i in content %}
+        {% if i.file %}
     <tr>
         <th>
-            <a href="/demo/static/file/bommodel{{ pid }}{{ i.user.username }}{{ i.file }}">{{ i.file }}</a>
+            <a href="{{ i.file_url }}">{{ i.file }}</a>
         </th>
-        <th>
-            <a href="/demo/static/img/bommodel{{ pid }}{{ i.user.username }}{{ i.img }}">{{ i.img }}</a>
-        </th>
-        <th>{{ i.user.username }}</th>
+
+        <th>{{ i.user }}</th>
         <th>{{ i.upload_time }}</th>
     </tr>
+        {% endif %}
+    {% endfor %}
+</table>
+</div>
+
+<div style="margin-top: 50px;">
+    <table>
+    <tr>
+        <th class="com"> 上传图片 </th>
+        <th class="com"> 操作人 </th>
+        <th class="com"> 上传时间 </th>
+    </tr>
+    {% for i in content %}
+        {% if i.img %}
+
+    <tr>
+        <th>
+            <a href="{{ i.img_url }}">{{ i.img }}</a>
+        </th>
+        <th>{{ i.user }}</th>
+        <th>{{ i.upload_time }}</th>
+    </tr>
+        {% endif %}
 
     {% endfor %}
 </table>
+</div>
 {{ error }}
 </body>
 </html>

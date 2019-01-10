@@ -51,6 +51,33 @@
             document.getElementById('array').value = array;
         };
 
+    function select_enum() {
+        var obj = $('#item option:selected').val();
+            $.ajax({
+        url: '/enum/?item='+ obj,
+        type: 'application/json',
+        method: 'get',
+        success: function (data) {
+        $("#parent").empty();
+
+        var html = '<option selected value="">------</option>';
+
+            //用for循环遍历返回结果。
+    for(var i=0;i<data.length;i++){
+        var data_get = data;
+        var iteam = data[i];
+    html += "<option value="+iteam.id+">"+iteam.nr+"</option>";
+
+}
+
+       $("#parent").html(html);
+    },
+        error: function (err) {
+            alert(err);
+        }
+    })
+}
+
 </script>
 
 <style type="text/css">

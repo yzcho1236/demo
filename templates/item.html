@@ -187,21 +187,16 @@
             <th><input value="{{ i.nr }}"></th>
             <th><input value="{{ i.name }}"></th>
             <th><input value="{{ i.barcode }}"></th>
-            {% if "change_item" in perm %}
                 <th>
                     <a href="/item/edit/?item_id={{ i.id }}">
                         <button> 修改</button>
                     </a>
                 </th>
-            {% endif %}
-
-            {% if "delete_item" in perm %}
                 <th>
                     <a href="/item/delete/?item_id={{ i.id }}">
                         <button> 删除</button>
                     </a>
                 </th>
-            {% endif %}
         {% endfor %}
     </table>
     {% endif %}

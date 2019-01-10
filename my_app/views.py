@@ -1,11 +1,13 @@
+import json
 import traceback
 import urllib
 from datetime import datetime
 from io import BytesIO
 
 from django.contrib.contenttypes.models import ContentType
+from django.core.serializers.json import DjangoJSONEncoder
 from django.db import transaction
-from django.db.models import NOT_PROVIDED, AutoField
+from django.db.models import NOT_PROVIDED, AutoField, Q
 
 from django.http import HttpResponse, HttpResponseRedirect
 from django.template.response import TemplateResponse
@@ -18,9 +20,10 @@ from openpyxl.cell import WriteOnlyCell
 from demo.util import Pagination, select_op
 from input.models import Item
 from my_app.form import ItemBomForm
-from my_app.models import BomModel, Pictures, Comment
+from my_app.models import BomModel, Pictures, UploadFileModel
+from my_app.qiniu import storage
 from my_app.util import BomNr, BomData
-from settings import MEDIA_ROOT
+from settings import MEDIA_ROOT, MEDIA_URL, QINIU_DOMIN_PREFIX
 
 
 class ItemBom(View):
@@ -322,17 +325,41 @@ class ItemBom(View):
         return content
 
 
+class EnumView(View):
+    def get(self, request, *args, **kwargs):
+        item = int(request.GET.get("item", None))
+        child_list = [item]
+        parent_data = {}
+        data = []
+        if item:
+            def get_child(bom):
+                child = []
+                child_node = BomModel.objects.filter(parent_id=bom).order_by("id")
+                for i in child_node:
+                    child_list.append(i.item_id)
+                    child = get_child(i.item_id)
+                return child
+
+            # 获取所有当前节点的所有子节点
+            get_child(item)
+            parent = Item.objects.filter(~Q(id__in=child_list)).order_by("id").values("id", "nr")
+            for i in parent:
+                parent_data[i["id"]] = i["nr"]
+            data = [{"id": k, "nr": v} for k, v in dict(parent_data).items()] if parent_data else None
+
+        return HttpResponse(json.dumps(data, cls=DjangoJSONEncoder),
+                            content_type='application/json')
+
+
 class ItemBomAdd(View):
     items = BomNr.get_nr()
 
     def get(self, request, *args, **kwargs):
         content = {
             "item": self.items,
-            "parent": self.items
         }
         return TemplateResponse(request, "my_app_template/bom_add.html", content)
 
-    # TODO 创建有问题,二级联动
     def post(self, request, *args, **kwargs):
         form = ItemBomForm(request.POST)
         form_get = request.POST.dict()
@@ -349,8 +376,6 @@ class ItemBomAdd(View):
         # 获取上传的附件
         imgs = request.FILES.getlist('imgs', None)
         files = request.FILES.getlist('files', None)
-        img_name = []
-        file_name = []
         content = {
             "item": self.items,
             "parent": self.items,
@@ -365,17 +390,13 @@ class ItemBomAdd(View):
         # 判断上传文件的格式
         if imgs:
             for i in imgs:
-                if i.content_type == 'image/png':
-                    img_name.append(i.name)
-                else:
+                if i.content_type != 'image/png':
                     content["error"] = "请上传图片格式"
                     return TemplateResponse(request, "my_app_template/bom_add.html", content)
 
         if files:
             for i in files:
-                if i.content_type == 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' or i.content_type == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
-                    file_name.append(i.name)
-                else:
+                if i.content_type != 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' and i.content_type != 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
                     content["error"] = "请上传Word或者Excel文件"
                     return TemplateResponse(request, "my_app_template/bom_add.html", content)
 
@@ -412,28 +433,37 @@ class ItemBomAdd(View):
                                                              effective_start=effective_start, qty=qty)
 
                 content_type = ContentType.objects.get(app_label='my_app', model='bommodel')
-                if len(img_name) > 0:
-                    comment_img = []
+                if len(imgs) > 0:
+                    UploadFileModel_img = []
                     for i in imgs:
-                        comment = Comment(user=request.user, content_type=content_type, content_object=content_object,
-                                          img=i)
-                        comment_img.append(comment)
-                        # fname = MEDIA_ROOT + "\\img\\" + i.name
-                        # with open(fname, 'wb') as pic:
-                        #     for c in i.chunks():
-                        #         pic.write(c)
-                    Comment.objects.bulk_create(comment_img, batch_size=100)
-                if len(file_name) > 0:
-                    comment_file = []
+                        img_data = i.read()
+                        print(type(img_data))
+                        try:
+                            storage_name = storage(img_data)
+                        except Exception as e:
+                            print(e)
+                            content["error"] = "上传图片到七牛云错误"
+                            return TemplateResponse(request, "my_app_template/bom_add.html", content)
+
+                        imgs_add = UploadFileModel(user=request.user, content_type=content_type, content_object=content_object,
+                                           img_url=storage_name,img=i.name)
+                        UploadFileModel_img.append(imgs_add)
+
+                    UploadFileModel.objects.bulk_create(UploadFileModel_img, batch_size=100)
+                if len(files) > 0:
+                    UploadFileModel_file = []
                     for i in files:
-                        comment = Comment(user=request.user, content_type=content_type, content_object=content_object,
-                                          file=i.name)
-                        comment_file.append(comment)
-                        fname = MEDIA_ROOT + "\\file\\" + i.name
-                        with open(fname, 'wb') as pic:
-                            for c in i.chunks():
-                                pic.write(c)
-                    Comment.objects.bulk_create(comment_file, batch_size=100)
+                        file_data = i.read()
+                        try:
+                            storage_name = storage(file_data)
+                        except Exception as e:
+                            content["error"] = "上传文件到七牛云错误"
+                            return TemplateResponse(request, "my_app_template/bom_add.html", content)
+
+                        files_add = UploadFileModel(user=request.user, content_type=content_type, content_object=content_object,
+                                            file_url=storage_name,file=i.name)
+                        UploadFileModel_file.append(files_add)
+                    UploadFileModel.objects.bulk_create(UploadFileModel_file, batch_size=100)
             except Exception as e:
                 print(e)
                 content["error"] = "数据已经存在，请重新填写数据"
@@ -515,32 +545,44 @@ class ItemBomEdit(View):
                     bom_detail.nr = nr
                     bom_detail.save()
                     content_type = ContentType.objects.get(app_label='my_app', model='bommodel')
-                    before_upload = Comment.objects.filter(content_type=content_type, object_pk=id)
+                    before_upload = UploadFileModel.objects.filter(content_type=content_type, object_pk=id)
+                    # 删除上传文件
+                    for i in before_upload:
+                        i.file.delete(False)
+                        i.img.delete(False)
                     before_upload.delete()
                     if len(imgs) > 0:
-                        comment_img = []
+                        UploadFileModel_img = []
                         for i in imgs:
-                            comment = Comment(user=request.user, content_type=content_type,
-                                              content_object=bom_detail,
-                                              img=i.name)
-                            comment_img.append(comment)
-                            fname = MEDIA_ROOT + "\\img\\" + "bommodel" + str(id) + request.user.username + i.name
-                            with open(fname, 'wb') as pic:
-                                for c in i.chunks():
-                                    pic.write(c)
-                        Comment.objects.bulk_create(comment_img, batch_size=100)
+                            img_data = i.read()
+                            try:
+                                storage_name = storage(img_data)
+                            except Exception as e:
+                                content["error"] = "上传图片到七牛云错误"
+                                return TemplateResponse(request, "my_app_template/bom_edit.html", content)
+
+                            imgs_add = UploadFileModel(user=request.user, content_type=content_type,
+                                               content_object=bom_detail,
+                                               img_url=storage_name,img=i.name)
+                            UploadFileModel_img.append(imgs_add)
+
+                        UploadFileModel.objects.bulk_create(UploadFileModel_img, batch_size=100)
                     if len(files) > 0:
-                        comment_file = []
+                        UploadFileModel_file = []
                         for i in files:
-                            comment = Comment(user=request.user, content_type=content_type,
-                                              content_object=bom_detail,
-                                              file=i.name)
-                            comment_file.append(comment)
-                            fname = MEDIA_ROOT + "\\file\\" + "bommodel" + str(id) + request.user.username + i.name
-                            with open(fname, 'wb') as pic:
-                                for c in i.chunks():
-                                    pic.write(c)
-                        Comment.objects.bulk_create(comment_file, batch_size=100)
+                            img_data = i.read()
+                            try:
+                                storage_name = storage(img_data)
+                            except Exception as e:
+                                content["error"] = "上传文件到七牛云错误"
+                                return TemplateResponse(request, "my_app_template/bom_edit.html", content)
+
+                            files_add = UploadFileModel(user=request.user, content_type=content_type,
+                                                content_object=bom_detail,
+                                                file_url=storage_name,file=i.name)
+                            UploadFileModel_file.append(files_add)
+
+                        UploadFileModel.objects.bulk_create(UploadFileModel_file, batch_size=100)
                 except Exception as e:
                     print(e)
                     content["error"] = "编辑失效"
@@ -732,11 +774,20 @@ class UploadView(View):
         content_parameter = request.GET['content_parameter']
         pid = request.GET['id']
         content_type = ContentType.objects.filter(app_label='my_app', model=content_parameter.lower())
+        upload_list = []
         if content_type:
-            upload = Comment.objects.filter(content_type=content_type.first(), object_pk=pid).order_by('-id')
+            upload = UploadFileModel.objects.filter(content_type=content_type.first(), object_pk=pid).order_by('-id')
             for i in upload:
-                print(i.upload_time)
-            return TemplateResponse(request, "my_app_template/bom_files.html", {"upload": upload,"pid":pid})
+                adict = {}
+                adict["file_url"] = QINIU_DOMIN_PREFIX + i.file_url if i.file_url else None
+                adict["file"] = i.file
+                adict["img_url"] = QINIU_DOMIN_PREFIX + i.img_url if i.img_url else None
+                adict["img"] = i.img
+                adict["user"] = i.user.username
+                adict["upload_time"] = i.upload_time
+                upload_list.append(adict)
+            print(upload_list)
+            return TemplateResponse(request, "my_app_template/bom_files.html",{"content":upload_list})
         else:
             return TemplateResponse(request, "my_app_template/bom_files.html", {"error": "参数错误"})
 

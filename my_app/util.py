@@ -12,7 +12,7 @@ from my_app.models import BomModel
 class BomNr(object):
     @staticmethod
     def get_nr():
-        data = Item.objects.all().values("id", "nr")
+        data = Item.objects.all().order_by("id").values("id", "nr")
         item_data = {}
         for i in data:
             item_data[i["id"]] = i["nr"]

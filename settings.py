@@ -152,7 +152,7 @@ STATICFILES_DIRS = [
 ]
 
 MEDIA_ROOT = os.path.join(BASE_DIR, 'demo/upload')
-# MEDIA_URL = '/demo/upload/' #这个是在浏览器上访问该上传文件的url的前缀
+MEDIA_URL = '/demo/upload/'  # 这个是在浏览器上访问该上传文件的url的前缀
 
 AUTH_USER_MODEL = 'input.User'
 AUTHENTICATION_BACKENDS = [
@@ -215,3 +215,4 @@ LOGGING = {
 
 LOGIN_URL = '/login/'
 DEFAULT_PAGESIZE = 5
+QINIU_DOMIN_PREFIX = "http://pl3u05m5t.bkt.clouddn.com/"
