@@ -1,9 +1,10 @@
 import json
+import logging
 import traceback
 import urllib
 from datetime import datetime
 from io import BytesIO
-
+from reportlab.pdfgen import canvas
 import requests
 from django.contrib.contenttypes.models import ContentType
 from django.core.serializers.json import DjangoJSONEncoder
@@ -456,7 +457,7 @@ class ItemBomAdd(View):
                     UploadFileModel_file = []
                     for i in files_list:
                         file_data = i.read()
-                        key_name = "bom" + "-" + nr + "-" + str(uuid.uuid4()) + "-" + i.name
+                        key_name = str(uuid.uuid1()) + i.name
                         try:
                             storage_name = storage(file_data, key_name, mime_type=i.content_type)
                         except Exception as e:
@@ -809,8 +810,19 @@ class UploadView(View):
 
 class JustTest(View):
     def get(self, request, *args, **kwargs):
-        url_string = "http://pl3u05m5t.bkt.clouddn.com/FtKH962ymm2f0Uhea0FJCAbJD_vA"
-        r = requests.get(url_string, stream=True)
-        content = r.content
-        # content = content.decode("utf-8")
-        return HttpResponse(content)
+        # url_string = "http://pl3u05m5t.bkt.clouddn.com/bom-AC-b67967ab-eedd-4bb5-a5f5-cd9cef883bca-admin%E5%8A%B3%E9%94%90%E5%BC%80%E7%A5%A8%E4%BF%A1%E6%81%AF%E8%B5%84%E6%96%99%20%281%29.docx"
+        # r = requests.get(url_string, stream=True)
+        # content = r.text
+        # # content = content.decode("utf-8")
+        # # return HttpResponse(content)
+        # response = HttpResponse(content_type='application/pdf')
+        # response['Content-Disposition'] = 'attachment; filename="somefilename.pdf"'
+        # p = canvas.Canvas(response)
+        # p.drawString(500, 0, content)
+        # p.showPage()
+        # p.save()
+        logging.error("test~~~~~~")
+        return HttpResponse("ok")
+
+
+

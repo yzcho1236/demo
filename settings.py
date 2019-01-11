@@ -65,6 +65,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'django.template.context_processors.media'
             ],
 
         },
@@ -151,6 +152,8 @@ STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'demo/static/'),
 ]
 
+# MEDIA_URL 和 STATIC_URL 必须设置为不同的值
+# MEDIA_ROOT指向存放用户上传的文件所在目录的文件系统绝对路径
 MEDIA_ROOT = os.path.join(BASE_DIR, 'demo/upload')
 MEDIA_URL = '/demo/upload/'  # 这个是在浏览器上访问该上传文件的url的前缀
 
@@ -161,12 +164,16 @@ AUTHENTICATION_BACKENDS = [
 
 LOGGING = {
     'version': 1,
+    # 默认配置中的所有logger都将禁用
     'disable_existing_loggers': True,
+    # 对日志进行过滤
     'filters': {
-        'require_debug_false': {
+        'require_debug_false': { # django不在debug模式下才输出日志
             '()': 'django.utils.log.RequireDebugFalse',
+            # '()': 'django.utils.log.RequireDebugFalse',
         }
     },
+    # 日志信息显示的格式
     'formatters': {
         'standard': {
             'format': '%(levelname)s %(asctime)s %(pathname)s %(filename)s %(module)s %(funcName)s %(lineno)d: %(message)s'
@@ -197,6 +204,14 @@ LOGGING = {
             'filters': ['require_debug_false'],
             'class': 'django.utils.log.AdminEmailHandler',
         },
+        # 'file': {  # 向文件中输出日志
+        #     'level': 'INFO',
+        #     'class': 'logging.handlers.RotatingFileHandler',
+        #     'filename': os.path.join(os.path.dirname(BASE_DIR), "/demo/logs.log"),  # 日志文件的位置
+        #     'maxBytes': 300 * 1024 * 1024,
+        #     'backupCount': 10,
+        #     'formatter': 'verbose'
+        # },
     },
     'loggers': {
         # A handler to log all SQL queries.
@@ -206,10 +221,16 @@ LOGGING = {
             'level': 'DEBUG',
             'propagate': False,
         },
+        # 将Django 的日志打印到控制台,它在本地开发期间可能有用,仅在DEBUG=True时显示日志记录
         'django': {
             'handlers': ['console'],
             'level': 'INFO',
-        }
+        },
+        # 'django': {
+        #     'handlers': ['/demo/log/'],
+        #     'level': 'INFO',
+        #     'propagate': True,
+        # },
     }
 }
 
