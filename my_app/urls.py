@@ -9,5 +9,4 @@ urlpatterns = [
     url(r'^upload/$', views.UploadView.as_view(), name='upload'),
     url(r'^enum/$', views.EnumView.as_view(), name='get_enum'),
     url(r'^test/$', views.JustTest.as_view(), name='test'),
-    url(r'^test1/$', views.ShowPicture.as_view(), name='img'),
 ]

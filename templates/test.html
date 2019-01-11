@@ -4,17 +4,16 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>用户反馈</title>
+    <title>test</title>
 </head>
 <body>
-<form action="/test/" method="post" enctype="multipart/form-data">
-    上传：
-    <input type="file" name="picture">
-    <input type="submit" value="上传">
+<button onclick="download()">download</button>
 
-</form>
-{{ pic_obj.pic }}
-<img src="{% static  pic_obj.pic %}" alt="">
+<script>
+    function download() {
+        // response - byte
+
+    }
+</script>
 </body>
-
 </html>
