@@ -1,4 +1,6 @@
 from django.conf.urls import url
+from rest_framework.routers import DefaultRouter
+
 from . import views
 urlpatterns = [
     url(r'^item/bom/$', views.ItemBom.as_view(), name='item_bom'),
@@ -10,3 +12,6 @@ urlpatterns = [
     url(r'^enum/$', views.EnumView.as_view(), name='get_enum'),
     url(r'^test/$', views.JustTest.as_view(), name='test'),
 ]
+# router = DefaultRouter()  # 可以处理视图的路由器
+# # router.register(r'info', views.InfoViewSet)  # 向路由器中注册视图集
+# urlpatterns += router.urls

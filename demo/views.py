@@ -38,7 +38,7 @@ class Login(View):
             # 获取表单数据
             try:
                 user = User.objects.get(username=username)
-            except:
+            except User.DoesNotExist:
                 return TemplateResponse(request, "login.html",
                                         {"username": username, "password": password, "error": "用户名错误"})
             user = authenticate(request, username=username, password=password)
@@ -107,7 +107,7 @@ class Register(View):
                     return TemplateResponse(request, "register.html", data)
             try:
                 User.objects.create_user(username=username, password=password1)
-            except:
+            except User.DoesNotExist:
                 data["error"] = "注册失败"
                 return TemplateResponse(request, "register.html", data)
         else:
@@ -320,9 +320,7 @@ class ItemView(View):
         # 获取到的页面数
         page = request.GET.get("page", 1)
         query_data = dict(request.GET.lists())
-        item_query = GetQueryData.get_data(Item, query_data, filter_fields)[0]
-        fs = GetQueryData.get_data(Item, query_data, filter_fields)[1]
-        query_url = GetQueryData.get_data(Item, query_data, filter_fields)[2]
+        item_query,fs,query_url = GetQueryData.get_data(Item, query_data, filter_fields)
         count = float(item_query.count())
         pagesize = request.pagesizes if in_page else count
         pagination = Pagination(item_query, pagesize, page)

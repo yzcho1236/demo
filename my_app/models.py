@@ -16,6 +16,7 @@ class Comment(models.Model):
         related_name="content_type",
         on_delete=models.CASCADE)
     # 对象的主键
+    # Text字段类型可能会对这里数据库产生影响
     object_pk = models.TextField('object id')
     # 评论的对象
     content_object = GenericForeignKey(ct_field="content_type", fk_field="object_pk")
@@ -64,7 +65,7 @@ class BomModel(models.Model):
                                        default=datetime(datetime.now().year, datetime.now().month, datetime.now().day))
     effective_end = models.DateField(verbose_name="生效结束", null=True, blank=True, default=datetime(2030, 12, 31))
 
-    annex = GenericRelation(UploadFileModel, verbose_name='附件', related_name='bom_comment', object_id_field='object_pk')
+    annex = GenericRelation(UploadFileModel, verbose_name='附件', related_query_name='bom_comment', object_id_field='object_pk')
 
     def __str__(self):
         return self.nr

@@ -47,6 +47,7 @@ urlpatterns = [
 
     url(r'^', include('input.urls')),
     url(r'^', include('my_app.urls')),
+    url(r'^', include('restful.urls')),
     url(r'^admin/', admin.site.urls),
 ]
 

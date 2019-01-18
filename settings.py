@@ -36,10 +36,12 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'rest_framework',
     'demo',
     "input",
     "my_app",
     "mptt",
+    "restful",
 ]
 
 MIDDLEWARE = [

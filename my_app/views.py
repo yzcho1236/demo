@@ -18,7 +18,6 @@ from django.utils.encoding import force_str
 from django.views import View, generic
 from openpyxl import Workbook, load_workbook
 from openpyxl.cell import WriteOnlyCell
-from django.core.files.uploadedfile import InMemoryUploadedFile
 from demo.util import Pagination, select_op
 from input.models import Item
 from my_app.form import ItemBomForm
@@ -718,7 +717,7 @@ class ItemBomCalculate(View):
 
             return qty_child
 
-        get_qty(bom, number / bom.qty)
+        get_qty(bom, number)
 
         content = {
             "id": id,
@@ -823,6 +822,4 @@ class JustTest(View):
         # p.save()
         logging.error("test~~~~~~")
         return HttpResponse("ok")
-
-
 
